@@ -16,3 +16,8 @@ Reward functions can be color_reward based only on the number of colors or vqe_r
 To change the molecule, modify the driver.py file to match the corresponding molecule.
 On driver.py we can also change parameters for GFlowNets.
 If the flow model architecture needs to be modified, this can be done through gflow_utils.py.
+
+Pending implementations!!
+Parse the parameters for GFlowNets and name of the molecule/bond distance for Hamiltonian generation.
+Trajectory balance!!
+
