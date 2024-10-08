@@ -10,7 +10,7 @@ def get_terms(bin_H):
     """ Gets the terms from a Binary Hamiltonian excluding the constant term"""
     terms=[]
     for i in range(1,len(bin_H.binary_terms)):
-    	terms.append(bin_H.binary_terms[i])  
+        terms.append(bin_H.binary_terms[i])  
     return terms
 
 def FC_CompMatrix(terms):

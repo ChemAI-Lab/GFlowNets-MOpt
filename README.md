@@ -16,7 +16,9 @@ Reward functions can be color_reward based only on the number of colors or vqe_r
 To call this function use python driver.py molecule
 Where molecule can be H2, H4, H6, LiH, BeH2, N2. The default bond distance is 1 Angstrom. This can be modified on the hamiltonians.py file.
 
-On driver.py we can change parameters for GFlowNets like training rate, number of hid_uinits, number of episodes and the random seed. 
+On driver.py we can change parameters for GFlowNets like training rate, number of hid_uinits, number of episodes, update_freq and the random seed. 
+
+Training models (Flow matching, trajectory balance etc) are in training.py
 
 If the flow model architecture needs to be modified, this can be done through gflow_utils.py.
 
