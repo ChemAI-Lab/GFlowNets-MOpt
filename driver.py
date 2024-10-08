@@ -11,11 +11,11 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 #Hamiltonian definition#
 # and initialization   #
 ########################
-
-mol, H, Hferm, n_paulis, Hq = LiH()
+molecule = parser()
+mol, H, Hferm, n_paulis, Hq = molecule()
 print("Number of Pauli products to measure: {}".format(n_paulis))
 
-#Get list of Hamiltonian terms
+#Get list of Hamiltonian terms and generate complementary graph
 binary_H = BinaryHamiltonian.init_from_qubit_hamiltonian(H)
 terms=get_terms(binary_H)
 CompMatrix=FC_CompMatrix(terms)
@@ -25,9 +25,9 @@ n_terms=nx.number_of_nodes(Gc)
 # Parameters for GFlowNets#
 ###########################
 
-n_hid_units = 512
-n_episodes = 100
-learning_rate = 3e-4
+n_hid_units = 64
+n_episodes = 10000
+learning_rate = 1e-4
 seed = 45
 
 print("For all experiments, our hyperparameters will be:")
@@ -120,4 +120,6 @@ for episode in tbar:
 ##################################################################################
 check_sampled_graphs_vqe_plot(sampled_graphs)
 plot_loss_curve(losses, title="Loss over Training Iterations")
+#histogram_last(sampled_graphs)
+histogram_all(sampled_graphs)
 plt.show()

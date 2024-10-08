@@ -4,6 +4,24 @@ import tequila as tq
 from tequila.hamiltonian import QubitHamiltonian, paulis
 from tequila.grouping.binary_rep import BinaryHamiltonian
 from tequila.grouping import *
+import argparse
+
+def parser():
+    parser = argparse.ArgumentParser(description="Parse function name from terminal")
+    
+    # Define the argument for function name
+    parser.add_argument(
+        "func_name",
+        type=str,
+        help="The name of the molecule to call (e.g., H2, H4, H6, LiH, BeH2, N2)"
+    )
+
+    args = parser.parse_args()
+    
+    # Get the function dynamically
+    func = globals().get(args.func_name)
+
+    return func
 
 def H2():
     '''

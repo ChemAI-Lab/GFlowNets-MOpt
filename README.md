@@ -13,11 +13,13 @@ The purpose of this code is to generate a grouping of a Hamiltonian of molecular
 GFlowNet generates different samples where the ones with higher probability are based on the reward function.
 Reward functions can be color_reward based only on the number of colors or vqe_reward which contains the estimated number of measurements.
 
-To change the molecule, modify the driver.py file to match the corresponding molecule.
-On driver.py we can also change parameters for GFlowNets.
+To call this function use python driver.py molecule
+Where molecule can be H2, H4, H6, LiH, BeH2, N2. The default bond distance is 1 Angstrom. This can be modified on the hamiltonians.py file.
+
+On driver.py we can change parameters for GFlowNets like training rate, number of hid_uinits, number of episodes and the random seed. 
+
 If the flow model architecture needs to be modified, this can be done through gflow_utils.py.
 
 Pending implementations!!
-Parse the parameters for GFlowNets and name of the molecule/bond distance for Hamiltonian generation.
 Trajectory balance!!
 

@@ -106,3 +106,32 @@ def check_sampled_graphs_color_reward_plot(sampled_graphs):
       plt.sca(ax[i//4, i%4])
       plot_graph_wcolor(unique_graphs[i])
 
+def histogram_last(sampled_graphs):
+    n_shots = [shots_estimator(i) for i in sampled_graphs]
+    color = [max_color(i) for i in sampled_graphs]
+    color_graph = color[-1000:]
+    n_shots_graph = np.array(n_shots[-1000:])*1E-6
+    x_bins = np.arange(min(color_graph) - 0.5, max(color_graph) + 1.5, 1)  # Center the bars on integer ticks
+    y_bins = np.linspace(min(n_shots_graph), max(n_shots_graph), 100)  # You can adjust the number of bins
+# Create 2D histogram
+    plt.hist2d(color_graph, n_shots_graph, bins=[x_bins, y_bins])
+# Add color bar for intensity reference
+    plt.colorbar(label='Sampled graphs')
+# Label axes
+    plt.xlabel('Max Color')
+    plt.ylabel(r'$M_{est}\  \ [\times 10^{6}]$')
+    
+def histogram_all(sampled_graphs):
+    n_shots = [shots_estimator(i)*1E-6 for i in sampled_graphs]
+    color = [max_color(i) for i in sampled_graphs]
+    print(min(color))
+    x_bins = np.arange(min(color) - 0.5, max(color)  + 1.5, 1)  # Center the bars on integer ticks
+    y_bins = np.linspace(min(n_shots), max(n_shots), 300)  # You can adjust the number of bins
+# Create 2D histogram
+    plt.hist2d(color, n_shots, bins=[x_bins, y_bins])
+# Add color bar for intensity reference
+    plt.colorbar(label='Sampled graphs')
+# Label axes
+    plt.xlabel('Max Color')
+    plt.ylabel(r'$M_{est}\  \ [\times 10^{6}]$')
+

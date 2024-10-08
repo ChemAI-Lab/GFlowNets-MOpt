@@ -23,10 +23,11 @@ def calculate_forward_mask_from_state(state, t, lower_bound):
     """
     layers=nx.number_of_nodes(state)
     mask = np.ones(layers)  # Allowed actions represented as 1, disallowed actions as 0.
-    mask[lower_bound+2:] = 0
+    mask[lower_bound+3:] = 0
     neighbors = list(state.neighbors(t))
     neighbor_colors = [state.nodes[n]['color'] for n in neighbors]
     # Update the mask
     for color in neighbor_colors:
         mask[color] = 0    
     return torch.Tensor(mask).bool()
+
