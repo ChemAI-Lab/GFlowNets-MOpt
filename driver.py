@@ -26,9 +26,9 @@ n_terms=nx.number_of_nodes(Gc)
 # Parameters for GFlowNets#
 ###########################
 
-n_hid_units = 64
+n_hid_units = 128
 n_episodes = 1000
-learning_rate = 1e-4
+learning_rate = 3e-4
 update_freq = 10
 seed = 45
 
@@ -52,4 +52,4 @@ check_sampled_graphs_vqe_plot(sampled_graphs)
 plot_loss_curve(losses, title="Loss over Training Iterations")
 #histogram_last(sampled_graphs)
 histogram_all(sampled_graphs)
-plt.show()
+#plt.show()

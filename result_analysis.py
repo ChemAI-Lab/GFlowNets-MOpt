@@ -1,8 +1,9 @@
 from utils import *
 
 def plot_loss_curve(losses_A, title=""):
-    plt.figure(figsize=(10,3))
+    plt.figure(figsize=(10,5))
     plt.plot(losses_A, color="black")
+    plt.savefig('loss.png', dpi=600)
 
 def check_sampled_graphs_vqe(sampled_graphs):
     """Check sampled graphs with no duplicates based on number of shots. No Graph."""
@@ -31,7 +32,7 @@ def check_sampled_graphs_vqe(sampled_graphs):
 
 def check_sampled_graphs_vqe_plot(sampled_graphs):
     """Check sampled graphs with no duplicates based on vqe/number of shots and graphs them"""
-    fig, ax = plt.subplots(4, 4, figsize=(16, 16))
+    fig, ax = plt.subplots(4, 4, figsize=(18, 18))
     n_plot = 16  # 4 x 4
 
     print('Proportion of valid graphs:{}, ideal=1'.format(
@@ -55,6 +56,8 @@ def check_sampled_graphs_vqe_plot(sampled_graphs):
       print('Number of shots={} and max color {}'.format(shots_estimator(unique_graphs[i]), max_color(unique_graphs[i])))
       plt.sca(ax[i//4, i%4])
       plot_graph_wcolor(unique_graphs[i])
+
+    plt.savefig('Graphs.png', dpi=600)
 
 def plot_graph_wcolor(graph):
 
@@ -113,6 +116,7 @@ def histogram_last(sampled_graphs):
     n_shots_graph = np.array(n_shots[-1000:])*1E-6
     x_bins = np.arange(min(color_graph) - 0.5, max(color_graph) + 1.5, 1)  # Center the bars on integer ticks
     y_bins = np.linspace(min(n_shots_graph), max(n_shots_graph), 100)  # You can adjust the number of bins
+    plt.figure(figsize=(10,5))
 # Create 2D histogram
     plt.hist2d(color_graph, n_shots_graph, bins=[x_bins, y_bins])
 # Add color bar for intensity reference
@@ -120,18 +124,20 @@ def histogram_last(sampled_graphs):
 # Label axes
     plt.xlabel('Max Color')
     plt.ylabel(r'$M_{est}\  \ [\times 10^{6}]$')
+    plt.savefig('histo_last.png', dpi=600)
     
 def histogram_all(sampled_graphs):
     n_shots = [shots_estimator(i)*1E-6 for i in sampled_graphs]
     color = [max_color(i) for i in sampled_graphs]
     print(min(color))
     x_bins = np.arange(min(color) - 0.5, max(color)  + 1.5, 1)  # Center the bars on integer ticks
-    y_bins = np.linspace(min(n_shots), max(n_shots), 300)  # You can adjust the number of bins
+    y_bins = np.linspace(min(n_shots), max(n_shots), 1000)  # You can adjust the number of bins
 # Create 2D histogram
+    plt.figure(figsize=(10,5))
     plt.hist2d(color, n_shots, bins=[x_bins, y_bins])
 # Add color bar for intensity reference
     plt.colorbar(label='Sampled graphs')
 # Label axes
     plt.xlabel('Max Color')
     plt.ylabel(r'$M_{est}\  \ [\times 10^{6}]$')
-
+    plt.savefig('histo_all.png', dpi=600)
