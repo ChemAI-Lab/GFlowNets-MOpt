@@ -1,10 +1,11 @@
 #from tqdm import tqdm, trange
 #from torch.distributions.categorical import Categorical
 from utils import *
-from hamiltonians import *
+#from hamiltonians import *
 from gflow_utils import *
 from result_analysis import *
 from training import *
+import hamiltonians
 
 assert torch.__version__.startswith('2.1') and 'cu121' in torch.__version__, "The Colab torch version has changed, you may need to edit the !pip install cell to install matching torch_geometric versions"
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -26,7 +27,7 @@ n_terms=nx.number_of_nodes(Gc)
 # Parameters for GFlowNets#
 ###########################
 
-n_hid_units = 128
+n_hid_units = 512
 n_episodes = 1000
 learning_rate = 3e-4
 update_freq = 10
@@ -48,8 +49,8 @@ sampled_graphs, losses = precolored_flow_match_training(Gc, n_terms, n_hid_units
 ##################################################################################
 ## Done with the training loop, now we can analyze results.#######################
 ##################################################################################
-check_sampled_graphs_vqe_plot(sampled_graphs)
+#check_sampled_graphs_vqe_plot(sampled_graphs)
+check_sampled_graphs_vqe(sampled_graphs)
 plot_loss_curve(losses, title="Loss over Training Iterations")
 #histogram_last(sampled_graphs)
-histogram_all(sampled_graphs)
-#plt.show()
+histogram_all(molecule,sampled_graphs)

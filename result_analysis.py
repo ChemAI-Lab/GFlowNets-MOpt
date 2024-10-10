@@ -32,7 +32,7 @@ def check_sampled_graphs_vqe(sampled_graphs):
 
 def check_sampled_graphs_vqe_plot(sampled_graphs):
     """Check sampled graphs with no duplicates based on vqe/number of shots and graphs them"""
-    fig, ax = plt.subplots(4, 4, figsize=(18, 18))
+    fig, ax = plt.subplots(4, 4, figsize=(40, 40))
     n_plot = 16  # 4 x 4
 
     print('Proportion of valid graphs:{}, ideal=1'.format(
@@ -57,13 +57,14 @@ def check_sampled_graphs_vqe_plot(sampled_graphs):
       plt.sca(ax[i//4, i%4])
       plot_graph_wcolor(unique_graphs[i])
 
-    plt.savefig('Graphs.png', dpi=600)
+    plt.savefig('Graphs.png', format='png', dpi=600)
 
 def plot_graph_wcolor(graph):
 
     colors_dict = nx.get_node_attributes(graph, "color")
     vector = list(colors_dict.values())
-    pos = nx.circular_layout(graph)
+    #pos = nx.circular_layout(graph)
+    pos = nx.kamada_kawai_layout(graph)
     options = {
     "pos": pos,
     "node_color": vector,
@@ -73,6 +74,7 @@ def plot_graph_wcolor(graph):
     "width": 6,
     "labels": {n: n for n in graph}
     }
+    #Options for larger graphs (up to BeH2). node_size=35, width 0.02, "linewidths": 0. For H2 add labels and circ layout
     nx.draw(graph, cmap=plt.cm.rainbow, **options)
     shots = shots_estimator(graph)
     plt.text(0.01, 0.98, f'Shots:',
@@ -124,14 +126,15 @@ def histogram_last(sampled_graphs):
 # Label axes
     plt.xlabel('Max Color')
     plt.ylabel(r'$M_{est}\  \ [\times 10^{6}]$')
-    plt.savefig('histo_last.png', dpi=600)
+    plt.savefig('histo_last.png', format='png', dpi=600)
     
-def histogram_all(sampled_graphs):
+def histogram_all(molecule, sampled_graphs):
+    filename = f"{molecule}_histo_all.png"
     n_shots = [shots_estimator(i)*1E-6 for i in sampled_graphs]
     color = [max_color(i) for i in sampled_graphs]
     print(min(color))
     x_bins = np.arange(min(color) - 0.5, max(color)  + 1.5, 1)  # Center the bars on integer ticks
-    y_bins = np.linspace(min(n_shots), max(n_shots), 1000)  # You can adjust the number of bins
+    y_bins = np.linspace(min(n_shots), max(n_shots), 50)  # You can adjust the number of bins
 # Create 2D histogram
     plt.figure(figsize=(10,5))
     plt.hist2d(color, n_shots, bins=[x_bins, y_bins])
@@ -140,4 +143,4 @@ def histogram_all(sampled_graphs):
 # Label axes
     plt.xlabel('Max Color')
     plt.ylabel(r'$M_{est}\  \ [\times 10^{6}]$')
-    plt.savefig('histo_all.png', dpi=600)
+    plt.savefig(filename, format='png', dpi=600)

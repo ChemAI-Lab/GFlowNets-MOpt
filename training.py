@@ -17,6 +17,8 @@ def precolored_flow_match_training(graph, n_terms, n_hid_units, n_episodes, lear
     losses, sampled_graphs = [], []
     minibatch_loss = 0
     # Dictionary to store the color assigned to each node
+    #color_map = nx.coloring.greedy_color(graph, strategy="random_sequential")
+    #nx.set_node_attributes(graph, color_map, 'color')
 
     tbar = trange(n_episodes, desc="Training iter")
     for episode in tbar:
