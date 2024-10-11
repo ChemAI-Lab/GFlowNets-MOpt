@@ -1,4 +1,5 @@
 from utils import *
+from matplotlib.ticker import MaxNLocator
 
 def plot_loss_curve(losses_A, title=""):
     plt.figure(figsize=(10,5))
@@ -129,10 +130,11 @@ def histogram_last(sampled_graphs):
     plt.savefig('histo_last.png', format='png', dpi=600)
     
 def histogram_all(molecule, sampled_graphs):
-    filename = f"{molecule}_histo_all.png"
+    filename = f"{molecule}_histo_all.svg"
     n_shots = [shots_estimator(i)*1E-6 for i in sampled_graphs]
     color = [max_color(i) for i in sampled_graphs]
     print(min(color))
+    plt.axes().xaxis.set_major_locator(MaxNLocator(integer=True)) #Requests only integers on x-ticks
     x_bins = np.arange(min(color) - 0.5, max(color)  + 1.5, 1)  # Center the bars on integer ticks
     y_bins = np.linspace(min(n_shots), max(n_shots), 50)  # You can adjust the number of bins
 # Create 2D histogram
@@ -143,4 +145,4 @@ def histogram_all(molecule, sampled_graphs):
 # Label axes
     plt.xlabel('Max Color')
     plt.ylabel(r'$M_{est}\  \ [\times 10^{6}]$')
-    plt.savefig(filename, format='png', dpi=600)
+    plt.savefig(filename, format='svg', dpi=600)
