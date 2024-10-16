@@ -1,10 +1,11 @@
 from utils import *
 from matplotlib.ticker import MaxNLocator
 
-def plot_loss_curve(losses_A, title=""):
+def plot_loss_curve(figure, losses_A, title=""):
+    filename = f"{figure}_loss.svg"
     plt.figure(figsize=(10,5))
     plt.plot(losses_A, color="black")
-    plt.savefig('loss.png', dpi=600)
+    plt.savefig(filename, format='svg', dpi=600)
 
 def check_sampled_graphs_vqe(sampled_graphs):
     """Check sampled graphs with no duplicates based on number of shots. No Graph."""
@@ -31,7 +32,9 @@ def check_sampled_graphs_vqe(sampled_graphs):
     for i in range(n_plot):
       print('Number of shots={} and max color {}'.format(shots_estimator(unique_graphs[i]), max_color(unique_graphs[i])))
 
-def check_sampled_graphs_vqe_plot(sampled_graphs):
+def check_sampled_graphs_vqe_plot(figure, sampled_graphs):
+    filename = f"{figure}_graphs.png"
+
     """Check sampled graphs with no duplicates based on vqe/number of shots and graphs them"""
     fig, ax = plt.subplots(4, 4, figsize=(40, 40))
     n_plot = 16  # 4 x 4
@@ -58,14 +61,14 @@ def check_sampled_graphs_vqe_plot(sampled_graphs):
       plt.sca(ax[i//4, i%4])
       plot_graph_wcolor(unique_graphs[i])
 
-    plt.savefig('Graphs.png', format='png', dpi=600)
+    plt.savefig(filename, format='png')
 
 def plot_graph_wcolor(graph):
 
     colors_dict = nx.get_node_attributes(graph, "color")
     vector = list(colors_dict.values())
-    #pos = nx.circular_layout(graph)
-    pos = nx.kamada_kawai_layout(graph)
+    pos = nx.circular_layout(graph)
+    #pos = nx.kamada_kawai_layout(graph)
     options = {
     "pos": pos,
     "node_color": vector,
@@ -75,7 +78,8 @@ def plot_graph_wcolor(graph):
     "width": 6,
     "labels": {n: n for n in graph}
     }
-    #Options for larger graphs (up to BeH2). node_size=35, width 0.02, "linewidths": 0. For H2 add labels and circ layout
+    #Options for larger graphs (up to BeH2).Use kamada_kawai, node_size=35, width 0.02, "linewidths": 0. 
+    #For H2 add labels and circ layout. node_size=300, width=6
     nx.draw(graph, cmap=plt.cm.rainbow, **options)
     shots = shots_estimator(graph)
     plt.text(0.01, 0.98, f'Shots:',
@@ -129,8 +133,8 @@ def histogram_last(sampled_graphs):
     plt.ylabel(r'$M_{est}\  \ [\times 10^{6}]$')
     plt.savefig('histo_last.png', format='png', dpi=600)
     
-def histogram_all(molecule, sampled_graphs):
-    filename = f"{molecule}_histo_all.svg"
+def histogram_all(figure, sampled_graphs):
+    filename = f"{figure}_histo_all.svg"
     n_shots = [shots_estimator(i)*1E-6 for i in sampled_graphs]
     color = [max_color(i) for i in sampled_graphs]
     print(min(color))

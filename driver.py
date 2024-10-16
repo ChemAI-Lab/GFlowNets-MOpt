@@ -29,6 +29,7 @@ n_episodes = 1000
 learning_rate = 3e-4
 update_freq = 10
 seed = 45
+fig_name = "H2"
 
 print("For all experiments, our hyperparameters will be:")
 print("    + n_hid_units={}".format(n_hid_units))
@@ -46,8 +47,8 @@ sampled_graphs, losses = precolored_flow_match_training(Gc, n_terms, n_hid_units
 ##################################################################################
 ## Done with the training loop, now we can analyze results.#######################
 ##################################################################################
-#check_sampled_graphs_vqe_plot(sampled_graphs)
+#check_sampled_graphs_vqe_plot(fig_name, sampled_graphs)
 check_sampled_graphs_vqe(sampled_graphs)
-plot_loss_curve(losses, title="Loss over Training Iterations")
+plot_loss_curve(fig_name, losses, title="Loss over Training Iterations")
 #histogram_last(sampled_graphs)
-histogram_all(molecule,sampled_graphs)
+histogram_all(fig_name,sampled_graphs)
