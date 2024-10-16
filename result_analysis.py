@@ -134,7 +134,6 @@ def histogram_all(molecule, sampled_graphs):
     n_shots = [shots_estimator(i)*1E-6 for i in sampled_graphs]
     color = [max_color(i) for i in sampled_graphs]
     print(min(color))
-    plt.axes().xaxis.set_major_locator(MaxNLocator(integer=True)) #Requests only integers on x-ticks
     x_bins = np.arange(min(color) - 0.5, max(color)  + 1.5, 1)  # Center the bars on integer ticks
     y_bins = np.linspace(min(n_shots), max(n_shots), 50)  # You can adjust the number of bins
 # Create 2D histogram
@@ -143,6 +142,7 @@ def histogram_all(molecule, sampled_graphs):
 # Add color bar for intensity reference
     plt.colorbar(label='Sampled graphs')
 # Label axes
+    plt.xticks(np.arange(min(color),max(color)+1,step=1,dtype=np.int32)) #Requests only integers on x
     plt.xlabel('Max Color')
     plt.ylabel(r'$M_{est}\  \ [\times 10^{6}]$')
     plt.savefig(filename, format='svg', dpi=600)

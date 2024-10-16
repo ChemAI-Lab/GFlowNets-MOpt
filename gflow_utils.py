@@ -23,7 +23,7 @@ def calculate_forward_mask_from_state(state, t, lower_bound):
     """
     layers=nx.number_of_nodes(state)
     mask = np.ones(layers)  # Allowed actions represented as 1, disallowed actions as 0.
-    mask[lower_bound+3:] = 0
+    mask[lower_bound+1:] = 0
     neighbors = list(state.neighbors(t))
     neighbor_colors = [state.nodes[n]['color'] for n in neighbors]
     # Update the mask
