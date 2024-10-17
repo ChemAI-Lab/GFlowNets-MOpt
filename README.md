@@ -1,9 +1,10 @@
+The purpose of this code is to generate groups of compatible operators of a Hamiltonian of molecular systems based on the estimated number of shots.
+GFlowNet generates different samples where the ones with higher probability are based on a reward function.
+
 Before you run make sure to have the proper packages installed in requirements.txt 
 or
 Copy and paste the commands in pip_installs.txt ensuring that there are no conflicts during installation (additional packages may be required depending on your system).
 
-The purpose of this code is to generate groups of compatible operators of a Hamiltonian of molecular systems based on the estimated number of shots.
-GFlowNet generates different samples where the ones with higher probability are based on a reward function.
 Reward functions can be color_reward based only on the number of colors or vqe_reward which contains the estimated number of measurements.
 A mask function located in gflow_vqe/gflow_utils.py is employed to ensure that the generated graphs are valid and to limit the solution space, this limit can be changed by the user as required by modifyieng the line "mask[lower_bound+1:] = 0". 
 
@@ -14,7 +15,7 @@ To call this function use:
 
 python driver.py molecule > out.log
 
-Where molecule can be H2, H4, H6, LiH, BeH2, N2. The default bond distance is 1 Angstrom, this can be modified on the gflow_vqe/hamiltonians.py file. This can be modified on the hamiltonians.py file.
+Where molecule can be H2, H4, H6, LiH, BeH2, N2. The default bond distance is 1 Angstrom, this can be modified on the gflow_vqe/hamiltonians.py file. 
 
 On driver.py we can change parameters for GFlowNets like:
 fig_name, Training rate, number of hid_uinits, number of episodes, update_freq and the random seed, 
