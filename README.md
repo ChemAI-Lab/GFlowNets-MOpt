@@ -28,4 +28,5 @@ If the flow model architecture needs to be modified, this can be done in gflow_v
 Pending implementations!!
 1) Use a .json file as input for driver.py
 2) Measurement requirements using Variances from ccsd/cisd/fci wavefunctions.
-3) Trajectory balance!!
+3) Saving to files the generated dictionaries (save the best performing ones only or save all sampled but ordered)
+4) Trajectory balance!!
