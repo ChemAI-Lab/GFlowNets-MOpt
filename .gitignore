@@ -1,0 +1,7 @@
+__pycache__/*
+gflow_vqe/__pycache__/*
+FC/*
+*.svg
+*.log
+*.png
+*.hdf5

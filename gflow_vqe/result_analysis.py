@@ -1,4 +1,4 @@
-from utils import *
+from gflow_vqe.utils import *
 from matplotlib.ticker import MaxNLocator
 
 def plot_loss_curve(figure, losses_A, title=""):

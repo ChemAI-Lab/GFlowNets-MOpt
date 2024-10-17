@@ -1,8 +1,8 @@
-from utils import *
-from hamiltonians import *
-from gflow_utils import *
-from result_analysis import *
-from training import *
+from gflow_vqe.utils import *
+from gflow_vqe.hamiltonians import *
+from gflow_vqe.gflow_utils import *
+from gflow_vqe.result_analysis import *
+from gflow_vqe.training import *
 
 assert torch.__version__.startswith('2.1') and 'cu121' in torch.__version__, "The Colab torch version has changed, you may need to edit the !pip install cell to install matching torch_geometric versions"
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -47,7 +47,7 @@ sampled_graphs, losses = precolored_flow_match_training(Gc, n_terms, n_hid_units
 ##################################################################################
 ## Done with the training loop, now we can analyze results.#######################
 ##################################################################################
-#check_sampled_graphs_vqe_plot(fig_name, sampled_graphs)
+#check_sampled_graphs_vqe_plot(fig_name, sampled_graphs) #Prints commutativity graphs for best performing groupings
 check_sampled_graphs_vqe(sampled_graphs)
 plot_loss_curve(fig_name, losses, title="Loss over Training Iterations")
 #histogram_last(sampled_graphs)

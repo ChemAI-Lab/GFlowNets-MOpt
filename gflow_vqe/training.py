@@ -1,9 +1,7 @@
 from tqdm import tqdm, trange
 from torch.distributions.categorical import Categorical
-from utils import *
-from hamiltonians import *
-from gflow_utils import *
-from result_analysis import *
+from gflow_vqe.utils import *
+from gflow_vqe.gflow_utils import *
 
 def precolored_flow_match_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed):
     
