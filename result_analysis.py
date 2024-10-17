@@ -137,7 +137,7 @@ def histogram_all(figure, sampled_graphs):
     filename = f"{figure}_histo_all.svg"
     n_shots = [shots_estimator(i)*1E-6 for i in sampled_graphs]
     color = [max_color(i) for i in sampled_graphs]
-    print(min(color))
+    print('Minimum number of groups found {}'.format(min(color)))
     x_bins = np.arange(min(color) - 0.5, max(color)  + 1.5, 1)  # Center the bars on integer ticks
     y_bins = np.linspace(min(n_shots), max(n_shots), 50)  # You can adjust the number of bins
 # Create 2D histogram
