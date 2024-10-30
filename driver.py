@@ -42,7 +42,8 @@ print("    + update_freq={}".format(update_freq))
 # Training Loop!! ################
 ##################################
 
-sampled_graphs, losses = precolored_flow_match_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed)
+#sampled_graphs, losses = precolored_flow_match_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed)
+sampled_graphs, losses = pure_flow_match_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed)
 
 ##################################################################################
 ## Done with the training loop, now we can analyze results.#######################

@@ -19,7 +19,7 @@ class FlowModel(nn.Module):
 def calculate_forward_mask_from_state(state, t, lower_bound):
     """We want to mask the sampling to avoid any potential loss of time while training.
     In order to do so, we will have an upper bound on the number of colors used. Additionally,
-    we can make the probability of using the same color in 2 neighbors = 0.
+    we can make the probability of using the same color in 2 neighbors = 0 to ensure validity.
     """
     layers=nx.number_of_nodes(state)
     mask = np.ones(layers)  # Allowed actions represented as 1, disallowed actions as 0.
@@ -30,4 +30,3 @@ def calculate_forward_mask_from_state(state, t, lower_bound):
     for color in neighbor_colors:
         mask[color] = 0    
     return torch.Tensor(mask).bool()
-

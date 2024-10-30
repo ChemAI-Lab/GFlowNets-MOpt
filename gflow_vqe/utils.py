@@ -258,5 +258,9 @@ def graph_parents(state):
             parent_states.append(daddy_state)
             action[node] = colors_dict[node]
             parent_actions.append(tuple(list(action.values())))
+        else:
+            parent_states.append(daddy_state)
+            action[node] = colors_dict[node]
+            parent_actions.append(tuple(list(action.values())))
     return parent_states, parent_actions
 
