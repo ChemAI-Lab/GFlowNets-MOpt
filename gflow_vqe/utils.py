@@ -258,9 +258,25 @@ def graph_parents(state):
             parent_states.append(daddy_state)
             action[node] = colors_dict[node]
             parent_actions.append(tuple(list(action.values())))
-        else:
+        else: #This part allows to use as initial state a colored graph which the color is the same as the node
             parent_states.append(daddy_state)
             action[node] = colors_dict[node]
             parent_actions.append(tuple(list(action.values())))
     return parent_states, parent_actions
 
+def graph_parents_precolored(state):
+    parent_states = []  # States that are parents of state.
+    parent_actions = []  # Actions that lead from those parents to state.
+    colors_dict = nx.get_node_attributes(state, "color")
+    daddy_state=state.copy()
+    for node, color in colors_dict.items():
+        action={}
+        if node != color:
+            parent_dict=colors_dict.copy()
+            parent_dict[node] = node
+            #parent_states.append(parent_dict) #Potentially useful if we want to use only dicts
+            nx.set_node_attributes(daddy_state, parent_dict, "color")
+            parent_states.append(daddy_state)
+            action[node] = colors_dict[node]
+            parent_actions.append(tuple(list(action.values())))
+    return parent_states, parent_actions

@@ -24,9 +24,12 @@ Training models (Flow matching, trajectory balance etc) are in gflow_vqe/trainin
 Currently only the flow matching training is available, trajectory balance will be implemented for the full journal version.
 
 If the flow model architecture needs to be modified, this can be done in gflow_vqe/gflow_utils.py.
+Bugs!
+1) Pure flow matching not working for large systems, use precolored training in the meantime. 
 
 Pending implementations!!
 1) Use a .json file as input for driver.py
-2) Measurement requirements using Variances from ccsd/cisd/fci wavefunctions.
-3) Saving to files the generated dictionaries (save the best performing groupings only or save all sampled but ordered)
-4) Trajectory balance!!
+2) Add reduced parent calculation since we are using sequential coloring.
+3) Measurement requirements using Variances from ccsd/cisd/fci wavefunctions.
+4) Saving to files the generated dictionaries (save the best performing groupings only or save all sampled but ordered)
+5) Trajectory balance!!
