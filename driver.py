@@ -13,7 +13,13 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 molecule = parser()
 mol, H, Hferm, n_paulis, Hq = molecule()
 print("Number of Pauli products to measure: {}".format(n_paulis))
+############################
+# Get FCI wfn for variance #
+############################
 
+sparse_hamiltonian = get_sparse_operator(Hq)
+energy, fci_wfn = get_ground_state(sparse_hamiltonian)
+n_q = count_qubits(Hq)
 #Get list of Hamiltonian terms and generate complementary graph
 binary_H = BinaryHamiltonian.init_from_qubit_hamiltonian(H)
 terms=get_terms(binary_H)
@@ -42,7 +48,7 @@ print("    + update_freq={}".format(update_freq))
 # Training Loop!! ################
 ##################################
 
-sampled_graphs, losses = colored_initial_flow_match_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed)
+sampled_graphs, losses = colored_initial_flow_match_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q)
 #sampled_graphs, losses = precolored_flow_match_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed)
 #sampled_graphs, losses = pure_flow_match_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed)
 
@@ -50,7 +56,10 @@ sampled_graphs, losses = colored_initial_flow_match_training(Gc, n_terms, n_hid_
 ## Done with the training loop, now we can analyze results.#######################
 ##################################################################################
 #check_sampled_graphs_vqe_plot(fig_name, sampled_graphs) #Prints commutativity graphs for best performing groupings
-check_sampled_graphs_vqe(sampled_graphs)
+#check_sampled_graphs_vqe(sampled_graphs)
+#check_sampled_graphs_fci(sampled_graphs, fci_wfn, n_q)
+check_sampled_graphs_fci_plot(fig_name, sampled_graphs, fci_wfn, n_q)
 plot_loss_curve(fig_name, losses, title="Loss over Training Iterations")
 #histogram_last(sampled_graphs)
-histogram_all(fig_name,sampled_graphs)
+#histogram_all(fig_name,sampled_graphs)
+histogram_all_fci(fig_name,sampled_graphs,fci_wfn,n_q)

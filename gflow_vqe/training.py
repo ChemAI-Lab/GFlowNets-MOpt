@@ -166,7 +166,7 @@ def pure_flow_match_training(graph, n_terms, n_hid_units, n_episodes, learning_r
 
     return sampled_graphs, losses
 
-def colored_initial_flow_match_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed):
+def colored_initial_flow_match_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q):
     
     set_seed(seed)
     
@@ -180,7 +180,7 @@ def colored_initial_flow_match_training(graph, n_terms, n_hid_units, n_episodes,
     # Determine upper limit
     color_map = nx.coloring.greedy_color(graph, strategy="random_sequential")
     nx.set_node_attributes(graph, color_map, "color")
-    bound=max(color_map.values())+3
+    bound=max(color_map.values())+2
 
     tbar = trange(n_episodes, desc="Training iter")
     for episode in tbar:
@@ -213,8 +213,8 @@ def colored_initial_flow_match_training(graph, n_terms, n_hid_units, n_episodes,
             # We calculate the reward and set F(s,a) = 0 \forall a, since there
             # are no children of this state.
             #print(nx.get_node_attributes(new_state, "color"))
-            #reward = color_reward(new_state)
-                reward = vqe_reward(new_state)
+                reward = meas_reward(new_state,wfn,n_q)
+                #reward = vqe_reward(new_state)
                 edge_flow_preds = torch.zeros(nx.number_of_nodes(state))
             #print(reward)
             else:

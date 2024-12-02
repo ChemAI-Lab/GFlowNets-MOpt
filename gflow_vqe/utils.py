@@ -1,10 +1,13 @@
 from gflownet.envs.graph_building_env import *
 import random
+import math
 from tequila.hamiltonian import QubitHamiltonian, paulis
 from tequila.grouping.binary_rep import BinaryHamiltonian
 import matplotlib.pyplot as plt
 import pennylane as qml
 from pennylane import numpy as np
+from openfermion.linalg import get_ground_state, get_sparse_operator, variance
+from openfermion.utils import count_qubits
 
 def get_terms(bin_H):
     """ Gets the terms from a Binary Hamiltonian excluding the constant term"""
@@ -280,3 +283,26 @@ def graph_parents_precolored(state):
             action[node] = colors_dict[node]
             parent_actions.append(tuple(list(action.values())))
     return parent_states, parent_actions
+
+def get_groups_measurement(graph, wfn, n_qubit, tiny = 1e-8):
+    """Returns the /epsilon^2 M = [/sum_i\sqrt(Var G_i)]^2for the calculation with a given WFN. This version admits the FCI wfn only."""
+    h_color=extract_hamiltonian_by_color(graph)
+    groups = generate_groups(h_color)
+    sqrt_var=0
+    for g in groups:
+        sparse_group=get_sparse_operator(g,n_qubits=n_qubit)
+        var=variance(sparse_group,wfn)
+        if var.imag < tiny:
+            var = var.real
+        sqrt_var+=math.sqrt(var)
+    eps_sq_M=sqrt_var**2
+
+    return eps_sq_M
+
+def meas_reward(graph, wfn, n_qubit):
+    """Reward is based on the number of colors we have. The lower cliques the better.
+    Invalid configs give 0. Additionally, employs 1/eps^2M where M is the number of Measurements
+    to achieve accuracy \eps as reward function. The lower number of shots, the better."""
+    reward= color_reward(graph) + 1/get_groups_measurement(graph, wfn, n_qubit)
+
+    return reward
