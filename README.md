@@ -30,6 +30,5 @@ Bugs!
 Pending implementations!!
 1) Use a .json file as input for driver.py
 2) Add reduced parent calculation since we are using sequential coloring.
-3) Measurement requirements using Variances from ccsd/cisd/fci wavefunctions.
+3) Measurement requirements using Variances from ccsd/cisd
 4) Saving to files the generated dictionaries (save the best performing groupings only or save all sampled but ordered)
-5) Trajectory balance!!

@@ -306,3 +306,7 @@ def meas_reward(graph, wfn, n_qubit):
     reward= color_reward(graph) + 1/get_groups_measurement(graph, wfn, n_qubit)
 
     return reward
+
+def trajectory_balance_loss(logZ, log_P_F, log_P_B, reward):
+    """Trajectory balance objective converted into mean squared error loss."""
+    return (logZ + log_P_F - torch.log(torch.tensor(reward)) - log_P_B).pow(2)  
