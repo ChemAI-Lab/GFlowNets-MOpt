@@ -25,8 +25,8 @@ Currently only the flow matching training is available, trajectory balance will 
 
 If the flow model architecture needs to be modified, this can be done in gflow_vqe/gflow_utils.py.
 Bugs!
-1) Pure flow matching not working for large systems, use precolored training in the meantime.
-2) Pure Trajectory Balance not working correctly. Double check this part.
+1) Pure flow matching not working for large systems, use precolored training in the meantime. Potential solution, just add the log reward to avoid NaN due to large gradients.
+2) Pure Trajectory Balance not working correctly. Double check this part. 
 
 Pending implementations!!
 1) Use a .json file as input for driver.py
