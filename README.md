@@ -25,10 +25,12 @@ Currently only the flow matching training is available, trajectory balance will 
 
 If the flow model architecture needs to be modified, this can be done in gflow_vqe/gflow_utils.py.
 Bugs!
-1) Pure flow matching not working for large systems, use precolored training in the meantime. 
+1) Pure flow matching not working for large systems, use precolored training in the meantime.
+2) Pure Trajectory Balance not working correctly. Double check this part.
 
 Pending implementations!!
 1) Use a .json file as input for driver.py
 2) Add reduced parent calculation since we are using sequential coloring.
 3) Measurement requirements using Variances from ccsd/cisd
 4) Saving to files the generated dictionaries (save the best performing groupings only or save all sampled but ordered)
+5) Saving NN parameters.
