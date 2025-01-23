@@ -35,7 +35,7 @@ n_episodes = 1000
 learning_rate = 3e-4
 update_freq = 10
 seed = 45
-fig_name = "BeH2_prec"
+fig_name = "H2O"
 
 print("For all experiments, our hyperparameters will be:")
 print("    + n_hid_units={}".format(n_hid_units))
