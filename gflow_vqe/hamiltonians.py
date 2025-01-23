@@ -135,6 +135,22 @@ def H2O():
     Hferm = reverse_jordan_wigner(Hq)
     return mol, H, Hferm, len(Hq.terms) - 1, Hq #Minus 1 since it always contain a constant term that we don't need to measure.
 
+def NH3():
+    '''
+    Return a test hamiltonian.
+    '''
+    trafo = "JordanWigner"
+    mol = tq.chemistry.Molecule(
+                            geometry="N 7.04618477 -2.21085343 -0.11915502 \n H 7.43442418 -3.13159061 -0.15805493 \n H 7.41437566 -1.77270612 0.70088303 \n H 7.40558370 -1.70839679 -0.90551991",
+                            basis_set="sto3g",
+                            transformation=trafo,
+                            backend='pyscf'
+                                 )
+    H = mol.make_hamiltonian()
+    Hq = H.to_openfermion()
+    Hferm = reverse_jordan_wigner(Hq)
+    return mol, H, Hferm, len(Hq.terms) - 1, Hq #Minus 1 since it always contain a constant term that we don't need to measure.
+
 def H2bk():
     '''
     Return a test hamiltonian.
@@ -238,6 +254,22 @@ def H2Obk():
     trafo = "BravyiKitaev"
     mol = tq.chemistry.Molecule(
                             geometry="O 0.0 0.0 0.0 \n H 0.0 -0.86295967 0.50527280 \n H 0.0 0.74255434 0.66978582 ",
+                            basis_set="sto3g",
+                            transformation=trafo,
+                            backend='pyscf'
+                                 )
+    H = mol.make_hamiltonian()
+    Hq = H.to_openfermion()
+    Hferm = reverse_jordan_wigner(Hq)
+    return mol, H, Hferm, len(Hq.terms) - 1, Hq #Minus 1 since it always contain a constant term that we don't need to measure.
+
+def NH3bk():
+    '''
+    Return a test hamiltonian.
+    '''
+    trafo = "BravyiKitaev"
+    mol = tq.chemistry.Molecule(
+                            geometry="N 7.04618477 -2.21085343 -0.11915502 \n H 7.43442418 -3.13159061 -0.15805493 \n H 7.41437566 -1.77270612 0.70088303 \n H 7.40558370 -1.70839679 -0.90551991",
                             basis_set="sto3g",
                             transformation=trafo,
                             backend='pyscf'
