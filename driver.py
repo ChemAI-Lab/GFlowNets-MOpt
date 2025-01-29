@@ -24,6 +24,7 @@ n_q = count_qubits(Hq)
 binary_H = BinaryHamiltonian.init_from_qubit_hamiltonian(H)
 terms=get_terms(binary_H)
 CompMatrix=FC_CompMatrix(terms)
+#CompMatrix=QWC_CompMatrix(terms)
 Gc=obj_to_comp_graph(terms, CompMatrix)
 n_terms=nx.number_of_nodes(Gc)
 ###########################
