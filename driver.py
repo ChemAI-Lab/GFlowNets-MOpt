@@ -32,11 +32,11 @@ n_terms=nx.number_of_nodes(Gc)
 ###########################
 
 n_hid_units = 512
-n_episodes = 1000
+n_episodes = 20
 learning_rate = 3e-4
 update_freq = 10
 seed = 45
-fig_name = "H2O"
+fig_name = "H2_test"
 
 print("For all experiments, our hyperparameters will be:")
 print("    + n_hid_units={}".format(n_hid_units))
@@ -56,6 +56,12 @@ print("    + update_freq={}".format(update_freq))
 sampled_graphs, losses = precolored_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q)
 #sampled_graphs, losses = pure_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q)
 
+##################################
+# Save graphs to file!! ##########
+##################################
+
+with open(fig_name + "sampled_graphs.p", 'wb') as f:
+    pickle.dump(sampled_graphs, f, pickle.HIGHEST_PROTOCOL)
 
 ##################################################################################
 ## Done with the training loop, now we can analyze results.#######################
