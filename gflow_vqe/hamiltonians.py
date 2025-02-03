@@ -5,6 +5,7 @@ from tequila.hamiltonian import QubitHamiltonian, paulis
 from tequila.grouping.binary_rep import BinaryHamiltonian
 from tequila.grouping import *
 import argparse
+import pickle
 
 def parser():
     parser = argparse.ArgumentParser(description="Parse function name from terminal")
@@ -278,3 +279,12 @@ def NH3bk():
     Hq = H.to_openfermion()
     Hferm = reverse_jordan_wigner(Hq)
     return mol, H, Hferm, len(Hq.terms) - 1, Hq #Minus 1 since it always contain a constant term that we don't need to measure.
+
+#Loads Hamiltonian from npj Quantum Inf 9, 14 (2023). https://doi.org/10.1038/s41534-023-00683-y to ensure correct file for NH3
+def load_qubit_hamiltonian(mol, tf="bk", prefix="./"):
+    with open(prefix + "ham_lib/" + mol + "_fer.bin", "rb") as f:
+        Hf = pickle.load(f)
+    if tf == "bk":
+        return bravyi_kitaev(Hf), QubitHamiltonian(bravyi_kitaev(Hf))
+    else:
+        raise ValueError(f"Transformation {tf} not supported")
