@@ -6,3 +6,4 @@ FC/*
 *.png
 *.hdf5
 *.p
+*.pth
