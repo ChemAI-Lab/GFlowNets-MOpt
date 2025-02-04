@@ -32,7 +32,7 @@ n_terms=nx.number_of_nodes(Gc)
 ###########################
 
 n_hid_units = 512
-n_episodes = 20
+n_episodes = 200
 learning_rate = 3e-4
 update_freq = 10
 seed = 45
@@ -49,18 +49,18 @@ print("    + update_freq={}".format(update_freq))
 # Training Loop!! ################
 ##################################
 
-#sampled_graphs, losses = colored_initial_flow_match_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q)
-#sampled_graphs, losses = precolored_flow_match_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q)
-#sampled_graphs, losses = pure_flow_match_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q)
-#sampled_graphs, losses = colored_initial_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q)
-sampled_graphs, losses = precolored_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q)
-#sampled_graphs, losses = pure_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q)
+#sampled_graphs, losses = colored_initial_flow_match_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name)
+#sampled_graphs, losses = precolored_flow_match_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name)
+#sampled_graphs, losses = pure_flow_match_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name)
+#sampled_graphs, losses = colored_initial_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name)
+#sampled_graphs, losses = precolored_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name)
+sampled_graphs, losses = pure_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name)
 
 ##################################
 # Save graphs to file!! ##########
 ##################################
 
-with open(fig_name + "sampled_graphs.p", 'wb') as f:
+with open(fig_name + "_sampled_graphs.p", 'wb') as f:
     pickle.dump(sampled_graphs, f, pickle.HIGHEST_PROTOCOL)
 
 ##################################################################################

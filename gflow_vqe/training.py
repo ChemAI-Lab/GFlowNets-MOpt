@@ -3,7 +3,7 @@ from torch.distributions.categorical import Categorical
 from gflow_vqe.utils import *
 from gflow_vqe.gflow_utils import *
 
-def precolored_flow_match_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q):
+def precolored_flow_match_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q, fig_name):
     
     set_seed(seed)
     # Instantiate model n_hid_units optimizer
@@ -82,10 +82,16 @@ def precolored_flow_match_training(graph, n_terms, n_hid_units, n_episodes, lear
             opt.step()
             opt.zero_grad()
             minibatch_loss = 0
+            torch.save({
+            'epoch': episode,
+            'model_state_dict': F_sa.state_dict(),
+            'optimizer_state_dict': opt.state_dict(),
+            'loss': losses,
+            }, fig_name + "_precoloredFMmodel.pth")
 
     return sampled_graphs, losses
 
-def pure_flow_match_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q):
+def pure_flow_match_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q, fig_name):
     
     set_seed(seed)
     # Instantiate model n_hid_units optimizer
@@ -165,10 +171,16 @@ def pure_flow_match_training(graph, n_terms, n_hid_units, n_episodes, learning_r
             opt.step()
             opt.zero_grad()
             minibatch_loss = 0
+            torch.save({
+            'epoch': episode,
+            'model_state_dict': F_sa.state_dict(),
+            'optimizer_state_dict': opt.state_dict(),
+            'loss': losses,
+            }, fig_name + "_pureFMmodel.pth")
 
     return sampled_graphs, losses
 
-def colored_initial_flow_match_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q):
+def colored_initial_flow_match_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q, fig_name):
     
     set_seed(seed)
     
@@ -245,10 +257,16 @@ def colored_initial_flow_match_training(graph, n_terms, n_hid_units, n_episodes,
             opt.step()
             opt.zero_grad()
             minibatch_loss = 0
+            torch.save({
+            'epoch': episode,
+            'model_state_dict': F_sa.state_dict(),
+            'optimizer_state_dict': opt.state_dict(),
+            'loss': losses,
+            }, fig_name + "_colored_initial_FMmodel.pth")
 
     return sampled_graphs, losses
 
-def colored_initial_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q):
+def colored_initial_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q, fig_name):
     
     set_seed(seed)
     
@@ -320,10 +338,16 @@ def colored_initial_TB_training(graph, n_terms, n_hid_units, n_episodes, learnin
             opt.step()
             opt.zero_grad()
             minibatch_loss = 0
+            torch.save({
+            'epoch': episode,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': opt.state_dict(),
+            'loss': losses,
+            }, fig_name + "_colored_initial_TBmodel.pth")            
 
     return sampled_graphs, losses
 
-def precolored_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q):
+def precolored_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q, fig_name):
     
     set_seed(seed)
     
@@ -394,10 +418,16 @@ def precolored_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rat
             opt.step()
             opt.zero_grad()
             minibatch_loss = 0
+            torch.save({
+            'epoch': episode,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': opt.state_dict(),
+            'loss': losses,
+            }, fig_name + "_precoloredTBmodel.pth")            
 
     return sampled_graphs, losses
 
-def pure_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q):
+def pure_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q, fig_name):
     
     set_seed(seed)
     
@@ -411,7 +441,9 @@ def pure_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, upd
     minibatch_loss = 0
     # Determine upper limit
     color_map = nx.coloring.greedy_color(graph, strategy="random_sequential")
-    bound=max(color_map.values())+2
+    bound=max(color_map.values())+10
+    for i in range(nx.number_of_nodes(graph)):
+        graph.nodes[i]['color'] = i    #Colors an initial set
 
     tbar = trange(n_episodes, desc="Training iter")
     for episode in tbar:
@@ -468,5 +500,11 @@ def pure_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, upd
             opt.step()
             opt.zero_grad()
             minibatch_loss = 0
+            torch.save({
+            'epoch': episode,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': opt.state_dict(),
+            'loss': losses,
+            }, fig_name + "_pureTBmodel.pth")
 
     return sampled_graphs, losses
