@@ -13,7 +13,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 #This driver takes Hamiltonians from npj Quantum Inf 9, 14 (2023). https://doi.org/10.1038/s41534-023-00683-y
 # MOLECULES = ["h2", "lih", "beh2", "h2o", "nh3", "n2"]
-mol="beh2"
+mol="lih"
 Hq, H = load_qubit_hamiltonian(mol)
 print("Number of Pauli products to measure: {}".format(len(Hq.terms) - 1))
 ############################
@@ -22,7 +22,9 @@ print("Number of Pauli products to measure: {}".format(len(Hq.terms) - 1))
 
 sparse_hamiltonian = get_sparse_operator(Hq)
 energy, fci_wfn = get_ground_state(sparse_hamiltonian)
+print("Energy={}".format(energy))
 n_q = count_qubits(Hq)
+print("Number of Qubits={}".format(n_q))
 #Get list of Hamiltonian terms and generate complementary graph
 binary_H = BinaryHamiltonian.init_from_qubit_hamiltonian(H)
 terms=get_terms(binary_H)
@@ -35,11 +37,11 @@ n_terms=nx.number_of_nodes(Gc)
 ###########################
 
 n_hid_units = 512
-n_episodes = 2
+n_episodes = 1000
 learning_rate = 3e-4
 update_freq = 10
 seed = 45
-fig_name = "nh3_loaded_fc" 
+fig_name = "lih_loaded_fc" 
 #All loaded Hamiltonians use BK transform.
 
 print("For all experiments, our hyperparameters will be:")

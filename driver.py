@@ -19,7 +19,9 @@ print("Number of Pauli products to measure: {}".format(n_paulis))
 
 sparse_hamiltonian = get_sparse_operator(Hq)
 energy, fci_wfn = get_ground_state(sparse_hamiltonian)
+print("Energy={}".format(energy))
 n_q = count_qubits(Hq)
+print("Number of Qubits={}".format(n_q))
 #Get list of Hamiltonian terms and generate complementary graph
 binary_H = BinaryHamiltonian.init_from_qubit_hamiltonian(H)
 terms=get_terms(binary_H)
@@ -32,11 +34,11 @@ n_terms=nx.number_of_nodes(Gc)
 ###########################
 
 n_hid_units = 512
-n_episodes = 200
+n_episodes = 2
 learning_rate = 3e-4
 update_freq = 10
-seed = 45
-fig_name = "H2_test"
+seed = 89
+fig_name = "NH3bk_test"
 
 print("For all experiments, our hyperparameters will be:")
 print("    + n_hid_units={}".format(n_hid_units))
@@ -53,8 +55,8 @@ print("    + update_freq={}".format(update_freq))
 #sampled_graphs, losses = precolored_flow_match_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name)
 #sampled_graphs, losses = pure_flow_match_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name)
 #sampled_graphs, losses = colored_initial_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name)
-#sampled_graphs, losses = precolored_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name)
-sampled_graphs, losses = pure_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name)
+sampled_graphs, losses = precolored_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name)
+#sampled_graphs, losses = pure_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name)
 
 ##################################
 # Save graphs to file!! ##########

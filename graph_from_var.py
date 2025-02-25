@@ -36,11 +36,13 @@ yerr=std_devs
 lower_bound = averages - std_devs
 upper_bound = averages + std_devs
 
-plt.plot(x_values, averages, 'o-', label="Measurement Average", ms=4, markevery=3)
-plt.fill_between(x_values, lower_bound, upper_bound, alpha=0.3, label="Standard Deviation")
+plt.plot(x_values, averages, '#9467bd' ,marker='d', linestyle='-', label="Measurement Average", ms=8, markevery=3) #ms=5 for o and 8 for p,d,etc
+plt.fill_between(x_values, lower_bound, upper_bound, color='#9467bd', alpha=0.3, label="Standard Deviation")
 # Add horizontal black line
-plt.axhline(y=1.11, color='black', linestyle='--', linewidth=3)
-plt.xlim(-5, 300)
+
+y_val=18.8 #GMA Value 
+plt.axhline(y=y_val, color='black', linestyle='--', linewidth=3)
+plt.xlim(-1, 49)
 #plt.ylim(0.95,1.85)
 plt.xlabel("Iterations",fontsize=20)
 #plt.ylabel("Measurement Average",fontsize=20)
@@ -49,5 +51,15 @@ plt.tick_params(axis='both', which='major', labelsize=20)  # Adjust label size
 #plt.title("Average of Lowest 10 Measurements per Optimization Step")
 #plt.legend()
 plt.grid(False)
-plt.savefig("Average_top10_BeH2_fb.svg", format='svg', dpi=600)
-plt.savefig("Average_top10_BeH2_fb.png", format='png', dpi=600)
+plt.savefig("Average_top10_H2OjwQWC.svg", format='svg', dpi=600)
+plt.savefig("Average_top10_H2OjwQWC.png", format='png', dpi=600)
+
+##################
+#Color Codes and Markers
+# *  H2: '#1f77b4'  "o"
+# *  H4: '#ff7f0e'  "^"
+# * LiH: '#2ca02c'  "s"
+# * BeH2: '#d62728' "p"
+# * H2O: '#9467bd'  "d"
+# * N2: '#8c564b'   "h"
+# * NH3: '#e377c2'  "X"
