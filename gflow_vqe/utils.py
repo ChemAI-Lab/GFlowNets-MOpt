@@ -284,7 +284,7 @@ def graph_parents_precolored(state):
             parent_actions.append(tuple(list(action.values())))
     return parent_states, parent_actions
 
-def get_groups_measurement(graph, wfn, n_qubit, tiny = 1e-14):
+def get_groups_measurement(graph, wfn, n_qubit, tiny = 1e-10):
     """Returns the /epsilon^2 M = [/sum_i\sqrt(Var G_i)]^2for the calculation with a given WFN. This version admits the FCI wfn only."""
     h_color=extract_hamiltonian_by_color(graph)
     groups = generate_groups(h_color)
