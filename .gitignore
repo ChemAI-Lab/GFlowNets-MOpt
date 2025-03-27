@@ -5,3 +5,5 @@ FC/*
 *.log
 *.png
 *.hdf5
+*.p
+*.pth
