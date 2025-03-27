@@ -67,6 +67,10 @@ def obj_to_comp_graph(terms, matrix) -> Graph:
 
 def graph_hash(graph):
     """Returns a binary hash for each submitted graph."""
+    if not nx.get_node_attributes(graph, "color"):
+        # Assign a default color (-1) to all nodes
+        nx.set_node_attributes(graph, -1, "color")
+
     colors_dict = nx.get_node_attributes(graph, "color")
     FEATURE_KEYS = list(colors_dict.values())
 
