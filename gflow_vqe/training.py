@@ -442,8 +442,6 @@ def pure_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, upd
     # Determine upper limit
     color_map = nx.coloring.greedy_color(graph, strategy="random_sequential")
     bound=max(color_map.values())+10
-    for i in range(nx.number_of_nodes(graph)):
-        graph.nodes[i]['color'] = i    #Colors an initial set
 
     tbar = trange(n_episodes, desc="Training iter")
     for episode in tbar:
