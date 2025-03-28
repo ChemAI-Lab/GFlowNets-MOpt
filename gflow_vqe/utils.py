@@ -69,7 +69,7 @@ def graph_hash(graph):
     """Returns a binary hash for each submitted graph."""
     if not nx.get_node_attributes(graph, "color"):
         # Assign a default color (-1) to all nodes
-        nx.set_node_attributes(graph, -1, "color")
+        nx.set_node_attributes(graph, 0, "color")
 
     colors_dict = nx.get_node_attributes(graph, "color")
     FEATURE_KEYS = list(colors_dict.values())
@@ -311,7 +311,10 @@ def meas_reward(graph, wfn, n_qubit):
     """Reward is based on the number of colors we have. The lower cliques the better.
     Invalid configs give 0. Additionally, employs 1/eps^2M where M is the number of Measurements
     to achieve accuracy \eps as reward function. The lower number of shots, the better."""
-    reward= color_reward(graph) + 1/get_groups_measurement(graph, wfn, n_qubit)
+    if is_not_valid(graph):
+        return 0
+    else:
+        reward= color_reward(graph) + 1/get_groups_measurement(graph, wfn, n_qubit)
 
     return reward
 

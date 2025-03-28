@@ -164,7 +164,7 @@ def check_sampled_graphs_fci(sampled_graphs, wfn, n_qubit):
     unique_graphs = []
     seen_color_dicts = set()
 
-    for graph in sorted(sampled_graphs, key=lambda i: get_groups_measurement(i, wfn, n_qubit), reverse=False):
+    for graph in sorted(sampled_graphs, key=lambda i: meas_reward(i, wfn, n_qubit), reverse=True):
         color_dict = frozenset(nx.get_node_attributes(graph, "color").items())
         if color_dict not in seen_color_dicts:
             seen_color_dicts.add(color_dict)
@@ -174,7 +174,7 @@ def check_sampled_graphs_fci(sampled_graphs, wfn, n_qubit):
     print('Number of shots for the best {} graphs'.format(n_plot))
 
     for i in range(n_plot):
-      print('Number of shots={} and max color {}'.format(get_groups_measurement(unique_graphs[i], wfn, n_qubit), max_color(unique_graphs[i])))
+      print('Number of shots={} and max color {}. Reward:{}'.format(get_groups_measurement(unique_graphs[i], wfn, n_qubit), max_color(unique_graphs[i]),meas_reward(unique_graphs[i], wfn, n_qubit)))
 
 def plot_graph_wcolor_fci(graph, wfn, n_qubit):
 
@@ -217,7 +217,7 @@ def check_sampled_graphs_fci_plot(figure, sampled_graphs, wfn, n_qubit):
     unique_graphs = []
     seen_color_dicts = set()
 
-    for graph in sorted(sampled_graphs, key=lambda i: get_groups_measurement(i, wfn, n_qubit), reverse=False):
+    for graph in sorted(sampled_graphs, key=lambda i: meas_reward(i, wfn, n_qubit), reverse=True):
         color_dict = frozenset(nx.get_node_attributes(graph, "color").items())
         if color_dict not in seen_color_dicts:
             seen_color_dicts.add(color_dict)
@@ -227,7 +227,7 @@ def check_sampled_graphs_fci_plot(figure, sampled_graphs, wfn, n_qubit):
     print('Number of shots for the best {} graphs'.format(n_plot))
 
     for i in range(n_plot):
-      print('eps^2 M={} and max color {}'.format(get_groups_measurement(unique_graphs[i], wfn, n_qubit), max_color(unique_graphs[i])))
+      print('eps^2 M={} and max color {}. Reward= {}'.format(get_groups_measurement(unique_graphs[i], wfn, n_qubit), max_color(unique_graphs[i]),meas_reward(unique_graphs[i], wfn, n_qubit)))
       plt.sca(ax[i//4, i%4])
       plot_graph_wcolor_fci(unique_graphs[i], wfn, n_qubit)
 

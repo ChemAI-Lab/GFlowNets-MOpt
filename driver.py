@@ -3,6 +3,7 @@ from gflow_vqe.hamiltonians import *
 from gflow_vqe.gflow_utils import *
 from gflow_vqe.result_analysis import *
 from gflow_vqe.training import *
+import time
 
 assert torch.__version__.startswith('2.1') and 'cu121' in torch.__version__, "The Colab torch version has changed, you may need to edit the !pip install cell to install matching torch_geometric versions"
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -11,6 +12,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # and initialization   #
 ########################
 molecule = parser()
+t0 = time.time()
 mol, H, Hferm, n_paulis, Hq = molecule()
 print("Number of Pauli products to measure: {}".format(n_paulis))
 ############################
@@ -58,6 +60,10 @@ print("    + update_freq={}".format(update_freq))
 #sampled_graphs, losses = precolored_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name)
 sampled_graphs, losses = pure_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name)
 
+##################################
+#Timing###########################
+t1 = time.time()
+print(f"Training time: {t1 - t0:.2f} seconds")
 ##################################
 # Save graphs to file!! ##########
 ##################################
