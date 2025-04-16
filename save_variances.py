@@ -36,14 +36,14 @@ with open(fig_name + "_sampled_graphs.p", 'rb') as f:
 
 print("Number of Graphs in file: {}".format(len(sampled_graphs)))
 #Serial version
-#all_measurements = np.array([get_groups_measurement(g, fci_wfn, n_q) for g in sampled_graphs])
+all_measurements = np.array([get_groups_measurement(g, fci_wfn, n_q) for g in sampled_graphs])
 # Parallel version
-def parallel_get_measurements(sampled_graphs, fci_wfn, n_q):
-    with multiprocessing.Pool() as pool:
-        results = pool.starmap(get_groups_measurement, [(g, fci_wfn, n_q) for g in sampled_graphs])
-    return np.array(results)
+# def parallel_get_measurements(sampled_graphs, fci_wfn, n_q):
+#     with multiprocessing.Pool() as pool:
+#         results = pool.starmap(get_groups_measurement, [(g, fci_wfn, n_q) for g in sampled_graphs])
+#     return np.array(results)
 
-all_measurements = parallel_get_measurements(sampled_graphs, fci_wfn, n_q)
+#all_measurements = parallel_get_measurements(sampled_graphs, fci_wfn, n_q)
 
 print("All Measurement produced")
 
