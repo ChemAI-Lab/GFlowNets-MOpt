@@ -39,4 +39,6 @@ Pending implementations!!
 
 1) Add reduced parent calculation since we are using sequential coloring. Multicoloring or group coloring.
 2) Measurement requirements using approximate Variances from ccsd/cisd
-3) Parallelization of training to improve performance.
+
+After cloning, install the package as:
+pip install -e .
