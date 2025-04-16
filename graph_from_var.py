@@ -36,11 +36,11 @@ yerr=std_devs
 lower_bound = averages - std_devs
 upper_bound = averages + std_devs
 
-plt.plot(x_values, averages, '#9467bd' ,marker='d', linestyle='-', label="Measurement Average", ms=8, markevery=3) #ms=5 for o and 8 for p,d,etc
-plt.fill_between(x_values, lower_bound, upper_bound, color='#9467bd', alpha=0.3, label="Standard Deviation")
+plt.plot(x_values, averages, '#2ca02c' ,marker='s', linestyle='-', label="Measurement Average", ms=8, markevery=3) #ms=5 for o and 8 for p,d,etc
+plt.fill_between(x_values, lower_bound, upper_bound, color='#2ca02c', alpha=0.3, label="Standard Deviation")
 # Add horizontal black line
 
-y_val=18.8 #GMA Value 
+y_val=18.8 #LF Value 
 plt.axhline(y=y_val, color='black', linestyle='--', linewidth=3)
 plt.xlim(-1, 49)
 #plt.ylim(0.95,1.85)
@@ -56,10 +56,10 @@ plt.savefig("Average_top10_H2OjwQWC.png", format='png', dpi=600)
 
 ##################
 #Color Codes and Markers
-# *  H2: '#1f77b4'  "o"
-# *  H4: '#ff7f0e'  "^"
-# * LiH: '#2ca02c'  "s"
-# * BeH2: '#d62728' "p"
-# * H2O: '#9467bd'  "d"
-# * N2: '#8c564b'   "h"
+# *  H2: '#1f77b4'  "o" LF JW, FullyCommuting values 0.136
+# *  H4: '#ff7f0e'  "^" 1.42
+# * LiH: '#2ca02c'  "s" 1.74
+# * BeH2: '#d62728' "p" 6.52
+# * H2O: '#9467bd'  "d" 23.0
+# * N2: '#8c564b'   "h" 
 # * NH3: '#e377c2'  "X"
