@@ -34,6 +34,23 @@ class TBModel(nn.Module):
 
     return P_F, P_B
   
+class TBModel_seq(nn.Module):
+  def __init__(self, num_hid, n_terms):
+    super().__init__()
+    self.mlp = nn.Sequential(
+        nn.Linear(n_terms, num_hid),  # layers (Number of Paulis) input features.
+        nn.LeakyReLU(),
+        nn.Linear(num_hid, n_terms),  # double outputs: 1/2 for P_F and 1/2 for P_B. P_B not necessary since it is sequential. Only 1 parent.
+    )
+    self.logZ = nn.Parameter(torch.ones(1))  # log Z is just a single number.
+
+  def forward(self, x, n_terms):
+    logits = self.mlp(x)
+    # Slice the logits into forward and backward policies.
+    P_F = logits[..., :n_terms]
+
+    return P_F
+  
 def calculate_forward_mask_from_state(state, t, lower_bound):
     """We want to mask the sampling to avoid any potential loss of time while training.
     In order to do so, we will have an upper bound on the number of colors used. Additionally,

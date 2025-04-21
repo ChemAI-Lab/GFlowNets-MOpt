@@ -11,7 +11,7 @@ import time
 
 
 def train_episode(rank, graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q):
-    """Training function for each process."""
+    """Training function for each process. Uses trajectory balance with sequential colors P_B=1"""
     #torch.cuda.set_device(0)  # Use GPU 0 for all processes
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     #device = torch.device("cpu")
@@ -21,22 +21,21 @@ def train_episode(rank, graph, n_terms, n_hid_units, n_episodes, learning_rate, 
     set_seed(seed + rank)
 
     # Create the model and move it to the GPU
-    model = TBModel(n_hid_units, n_terms).to(device)
+    model = TBModel_seq(n_hid_units, n_terms).to(device)
 
     # Optimizer
     opt = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     # Training loop
     minibatch_loss = 0
-    losses = []
-    sampled_graphs = []
+    losses, sampled_graphs, logZs = [], [], []
     tbar = trange(n_episodes // mp.cpu_count(), desc=f"Process {rank} Training")
     color_map = nx.coloring.greedy_color(graph, strategy="random_sequential")
     bound=max(color_map.values())+2
     for episode in tbar:
         state = graph.copy()  
-        P_F_s, P_B_s = model(graph_to_tensor(state).to(device), n_terms)  # Forward and backward policy
-        total_log_P_F, total_log_P_B = 0, 0
+        P_F_s = model(graph_to_tensor(state).to(device), n_terms)  # Forward and backward policy
+        total_log_P_F= 0
 
         for t in range(nx.number_of_nodes(state)):
             new_state = state.copy()
@@ -58,30 +57,30 @@ def train_episode(rank, graph, n_terms, n_hid_units, n_episodes, learning_rate, 
             else:
                 reward = 0
 
-            P_F_s, P_B_s = model(graph_to_tensor(new_state).to(device), n_terms)
-            mask = calculate_backward_mask_from_state(new_state, t, bound).to(device)
+            P_F_s = model(graph_to_tensor(new_state).to(device), n_terms)
+            #mask = calculate_backward_mask_from_state(new_state, t, bound).to(device)
             #P_B_s = torch.clamp(P_B_s, min=-1e6, max=1e6)
-            P_B_s = torch.where(torch.isnan(P_B_s), torch.full_like(P_B_s, -100), P_B_s)
-            P_B_s = torch.where(mask, P_B_s, -100)
-            total_log_P_B += Categorical(logits=P_B_s).log_prob(action)
+            #P_B_s = torch.where(torch.isnan(P_B_s), torch.full_like(P_B_s, -100), P_B_s)
+            #P_B_s = torch.where(mask, P_B_s, -100)
+            #total_log_P_B += Categorical(logits=P_B_s).log_prob(action)
 
             state = new_state
 
         sampled_graphs.append(state)
-        minibatch_loss += trajectory_balance_loss(
+        minibatch_loss += trajectory_balance_loss_seq(
             model.logZ,
             total_log_P_F,
-            total_log_P_B,
             reward,
         )
 
         if episode % update_freq == 0:
+            losses.append(minibatch_loss.item())
+            logZs.append(model.logZ.item())    
             minibatch_loss.backward()
             # Gradient clipping. Interesting to avoid exploding gradients. Good to know, not necessarily needed here
             #torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             opt.step()
             opt.zero_grad()
-            losses.append(minibatch_loss.item())
             minibatch_loss = 0
 
     return sampled_graphs, losses

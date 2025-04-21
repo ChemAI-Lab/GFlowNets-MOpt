@@ -11,7 +11,7 @@ import time
 
 
 def train_episode(rank, model, optimizer, graph, n_terms, n_episodes, update_freq, seed, wfn, n_q, lock):
-    """Training function for each process."""
+    """Training function for each process. Uses sequential TB"""
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     set_seed(seed + rank)
 
@@ -19,16 +19,15 @@ def train_episode(rank, model, optimizer, graph, n_terms, n_episodes, update_fre
     model.to(device)
 
     minibatch_loss = 0
-    losses = []
-    sampled_graphs = []
+    losses, sampled_graphs, logZs = [], [], []
     tbar = trange(n_episodes // mp.cpu_count(), desc=f"Process {rank} Training")
     color_map = nx.coloring.greedy_color(graph, strategy="random_sequential")
     bound = max(color_map.values()) + 2
 
     for episode in tbar:
         state = graph.copy()
-        P_F_s, P_B_s = model(graph_to_tensor(state).to(device), n_terms)  # Forward and backward policy
-        total_log_P_F, total_log_P_B = 0, 0
+        P_F_s = model(graph_to_tensor(state).to(device), n_terms)  # Forward and backward policy
+        total_log_P_F = 0
 
         for t in range(nx.number_of_nodes(state)):
             new_state = state.copy()
@@ -45,25 +44,25 @@ def train_episode(rank, model, optimizer, graph, n_terms, n_episodes, update_fre
             else:
                 reward = 0
 
-            P_F_s, P_B_s = model(graph_to_tensor(new_state).to(device), n_terms)
-            mask = calculate_backward_mask_from_state(new_state, t, bound).to(device)
-            P_B_s = torch.where(torch.isnan(P_B_s), torch.full_like(P_B_s, -100), P_B_s)
-            P_B_s = torch.where(mask, P_B_s, -100)
-            total_log_P_B += Categorical(logits=P_B_s).log_prob(action)
+            P_F_s = model(graph_to_tensor(new_state).to(device), n_terms)
+            # mask = calculate_backward_mask_from_state(new_state, t, bound).to(device)
+            # P_B_s = torch.where(torch.isnan(P_B_s), torch.full_like(P_B_s, -100), P_B_s)
+            # P_B_s = torch.where(mask, P_B_s, -100)
+            # total_log_P_B += Categorical(logits=P_B_s).log_prob(action)
 
             state = new_state
 
         sampled_graphs.append(state)
-        minibatch_loss += trajectory_balance_loss(
+        minibatch_loss += trajectory_balance_loss_seq(
             model.logZ,
             total_log_P_F,
-            total_log_P_B,
             reward,
         )
 
         if episode % update_freq == 0:
             minibatch_loss.backward()
-
+            losses.append(minibatch_loss.item())
+            logZs.append(model.logZ.item())
             # Use a lock to ensure only one process updates the model at a time
             with lock:
                 #torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)  # Gradient clipping
@@ -114,7 +113,7 @@ def main_loaded(Hq, H):
     print("Training in {} processors".format(num_processes))
 
     # Create the model and optimizer
-    model = TBModel(n_hid_units, n_terms)
+    model = TBModel_seq(n_hid_units, n_terms)
     model.share_memory()  # Share the model's parameters across processes
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 

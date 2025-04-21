@@ -11,7 +11,7 @@ import time
 
 
 def train_episode(rank, graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q):
-    """Training function for each process."""
+    """Training function for each process. Trajectory balance"""
     #torch.cuda.set_device(0)  # Use GPU 0 for all processes
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     #device = torch.device("cpu")
@@ -28,8 +28,7 @@ def train_episode(rank, graph, n_terms, n_hid_units, n_episodes, learning_rate, 
 
     # Training loop
     minibatch_loss = 0
-    losses = []
-    sampled_graphs = []
+    losses, sampled_graphs, logZs = [], [], []
     tbar = trange(n_episodes // mp.cpu_count(), desc=f"Process {rank} Training")
     color_map = nx.coloring.greedy_color(graph, strategy="random_sequential")
     bound=max(color_map.values())+2
@@ -76,6 +75,7 @@ def train_episode(rank, graph, n_terms, n_hid_units, n_episodes, learning_rate, 
         )
 
         if episode % update_freq == 0:
+            logZs.append(model.logZ.item())
             minibatch_loss.backward()
             # Gradient clipping. Interesting to avoid exploding gradients. Good to know, not necessarily needed here
             #torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -88,6 +88,92 @@ def train_episode(rank, graph, n_terms, n_hid_units, n_episodes, learning_rate, 
     
 def train_wrapper(rank, shared_results, *args):
     sampled_graphs, losses = train_episode(rank, *args)
+    print(f"Process {rank} finished training.")
+    shared_results.append((sampled_graphs, losses))
+
+def train_episode_seq(rank, graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q):
+    """Training function for each process. Trajectory balance"""
+    #torch.cuda.set_device(0)  # Use GPU 0 for all processes
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    #device = torch.device("cpu")
+    #torch.cuda.set_per_process_memory_fraction(0.9 / mp.cpu_count(), device=0)  # Limit memory usage
+
+    # Set the seed for reproducibility
+    set_seed(seed + rank)
+
+    # Instantiate model and optimizer
+    model = TBModel_seq(n_hid_units,n_terms)
+    opt = torch.optim.Adam(model.parameters(),  learning_rate)
+
+    # Accumulate losses here and take a
+    # gradient step every `update_freq` episode (at the end of each trajectory).
+    losses, sampled_graphs, logZs = [], [], []
+    minibatch_loss = 0
+    # Determine upper limit
+    color_map = nx.coloring.greedy_color(graph, strategy="random_sequential")
+    bound=max(color_map.values())+10
+
+    tbar = trange(n_episodes, desc="Training iter")
+    for episode in tbar:
+        state = graph  # Each episode starts with the initially colored graph
+        P_F_s = model(graph_to_tensor(state),n_terms)  # Forward and backward policy
+        total_log_P_F = 0
+        
+        for t in range(nx.number_of_nodes(state)):  # All trajectories as length the number of nodes
+
+            #Mask calculator
+            new_state = state.copy()
+            mask = calculate_forward_mask_from_state(new_state, t, bound)
+            P_F_s = torch.where(mask, P_F_s, -100)  # Removes invalid forward actions.
+            P_F_s = torch.where(torch.isnan(P_F_s), torch.full_like(P_F_s, -100), P_F_s)
+            # Sample the action and compute the new state.
+            # Here P_F is logits, so we use Categorical to compute a softmax.
+            categorical = Categorical(logits=P_F_s)
+            action = categorical.sample()
+            #print('Action {}'.format(action))
+            new_state.nodes[t]['color'] = action.item()
+            total_log_P_F += categorical.log_prob(action)  # Accumulate the log_P_F sum.
+
+            #If a trajectory is complete. in TB we don't need to calculate parents.
+            if t == nx.number_of_nodes(state)-1:  # End of trajectory.
+            # We calculate the reward
+                reward = meas_reward(new_state,wfn,n_q)
+                #reward = vqe_reward(new_state)
+            
+            # We recompute P_F and P_B for new_state.
+            P_F_s = model(graph_to_tensor(new_state),n_terms)
+
+            state = new_state  # Continue iterating.
+
+        # We're done with the trajectory, let's compute its loss. Since the reward
+        # can sometimes be zero, instead of log(0) we'll clip the log-reward to -20.
+        minibatch_loss += trajectory_balance_loss_seq(
+            model.logZ,
+            total_log_P_F,
+            reward,
+        )
+
+    # We're done with the episode, add the graph to the list, and if we are at an
+    # update episode, take a gradient step.
+        sampled_graphs.append(state)
+        if episode % update_freq == 0:
+            losses.append(minibatch_loss.item())
+            logZs.append(model.logZ.item())
+            minibatch_loss.backward()
+            opt.step()
+            opt.zero_grad()
+            minibatch_loss = 0
+            # torch.save({
+            # 'epoch': episode,
+            # 'model_state_dict': model.state_dict(),
+            # 'optimizer_state_dict': opt.state_dict(),
+            # 'loss': losses,
+            # }, fig_name + "_pureTBmodel_seq.pth")
+
+    return sampled_graphs, losses
+    
+def train_wrapper_seq(rank, shared_results, *args):
+    sampled_graphs, losses = train_episode_seq(rank, *args)
     print(f"Process {rank} finished training.")
     shared_results.append((sampled_graphs, losses))
 
@@ -134,7 +220,7 @@ def main(molecule):
         shared_results = manager.list()
 
         mp.spawn(
-            train_wrapper,
+            train_wrapper_seq, #train_wrapper or train_wrapper_seq
             args=(shared_results, Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q),
             nprocs=num_processes,
             join=True,

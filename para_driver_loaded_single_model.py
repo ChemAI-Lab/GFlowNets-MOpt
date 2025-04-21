@@ -11,7 +11,7 @@ import time
 
 
 def train_episode(rank, model, graph, n_terms, update_freq, seed, wfn, n_q):
-    """Training function for each process."""
+    """Training function for each process. Uses trajectory balance with sequential colors P_B=1"""
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     set_seed(seed + rank)
 
@@ -19,8 +19,7 @@ def train_episode(rank, model, graph, n_terms, update_freq, seed, wfn, n_q):
     model.to(device)
 
     minibatch_loss = 0
-    losses = []
-    sampled_graphs = []
+    losses, sampled_graphs, logZs = [], [], []
     #tbar = trange(update_freq, desc=f"Process {rank} Training")  # Run only update_freq episodes
     color_map = nx.coloring.greedy_color(graph, strategy="random_sequential")
     bound = max(color_map.values()) + 2
@@ -28,8 +27,8 @@ def train_episode(rank, model, graph, n_terms, update_freq, seed, wfn, n_q):
     #for episode in tbar:
     for _ in range(update_freq):
         state = graph.copy()
-        P_F_s, P_B_s = model(graph_to_tensor(state).to(device), n_terms)  # Forward and backward policy
-        total_log_P_F, total_log_P_B = 0, 0
+        P_F_s = model(graph_to_tensor(state).to(device), n_terms)  # Forward and backward policy
+        total_log_P_F = 0
 
         for t in range(nx.number_of_nodes(state)):
             new_state = state.copy()
@@ -46,19 +45,18 @@ def train_episode(rank, model, graph, n_terms, update_freq, seed, wfn, n_q):
             else:
                 reward = 0
 
-            P_F_s, P_B_s = model(graph_to_tensor(new_state).to(device), n_terms)
-            mask = calculate_backward_mask_from_state(new_state, t, bound).to(device)
-            P_B_s = torch.where(torch.isnan(P_B_s), torch.full_like(P_B_s, -100), P_B_s)
-            P_B_s = torch.where(mask, P_B_s, -100)
-            total_log_P_B += Categorical(logits=P_B_s).log_prob(action)
+            P_F_s = model(graph_to_tensor(new_state).to(device), n_terms)
+            # mask = calculate_backward_mask_from_state(new_state, t, bound).to(device)
+            # P_B_s = torch.where(torch.isnan(P_B_s), torch.full_like(P_B_s, -100), P_B_s)
+            # P_B_s = torch.where(mask, P_B_s, -100)
+            # total_log_P_B += Categorical(logits=P_B_s).log_prob(action)
 
             state = new_state
 
         sampled_graphs.append(state)
-        minibatch_loss += trajectory_balance_loss(
+        minibatch_loss += trajectory_balance_loss_seq(
             model.logZ,
             total_log_P_F,
-            total_log_P_B,
             reward,
         )
 
@@ -112,7 +110,7 @@ def main_loaded(Hq, H):
         for iteration in range(n_episodes // update_freq):
 
             # Create the model and optimizer
-            model = TBModel(n_hid_units, n_terms)
+            model = TBModel_seq(n_hid_units, n_terms)
             model.share_memory()  # Share the model's parameters across processes
             optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
             # Spawn processes for training
@@ -133,10 +131,10 @@ def main_loaded(Hq, H):
                 total_samples += len(sampled_graphs)
 
             # Perform optimization in the main process
-            optimizer.zero_grad()
             total_loss_tensor = torch.tensor(total_loss, requires_grad=True)
             total_loss_tensor.backward()
             optimizer.step()
+            optimizer.zero_grad()
 
             # Print optimization status
             print(f"Iteration {iteration + 1}: Optimized parameters with {total_samples} samples.")
