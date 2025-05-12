@@ -118,7 +118,7 @@ def is_not_valid(graph):
 
 def max_color(graph):
     colors_dict = nx.get_node_attributes(graph, "color")
-    return np.max(list(colors_dict.values()))+1
+    return len(set(colors_dict.values()))
 
 def color_reward(graph):
   """Reward is based on the number of colors we have. The lower the better. Invalid configs give 0"""
@@ -186,23 +186,20 @@ def estimate_shots(imported_operators):
     - list of float: Estimated number of shots for each operator.
     """
     # Initialize list to hold estimated shots for each operator
-    estimated_shots_list = []
-
+    all_coeffs = []
     # Iterate over each imported operator
     for operator in imported_operators:
         # Extract coefficients and observables from each operator
         coeffs, ops = operator.terms()
 
         # Convert coefficients to numpy arrays for compatibility with PennyLane
-        coeffs = [np.array(c) for c in coeffs]
+        all_coeffs.append(np.array(coeffs))
 
-        # Estimate shots for the current operator
-        estimated_shots = qml.resource.estimate_shots(coeffs)
+    #print(all_coeffs)
+    # Estimate shots for the grouping
+    estimated_shots = qml.resource.estimate_shots(all_coeffs)
 
-        # Append the result to the list
-        estimated_shots_list.append(estimated_shots)
-
-    return sum(estimated_shots_list)
+    return estimated_shots
 
 def shots_estimator(graph):
     """
@@ -219,7 +216,10 @@ def vqe_reward(graph):
     """Reward is based on the number of colors we have. The lower cliques the better.
     Invalid configs give 0. Additionally, employs 10^6/Nshots to achieve chemical accuracy
     as reward function. The lower number of shots, the better."""
-    reward=color_reward(graph) + 10**6/shots_estimator(graph)
+    if is_not_valid(graph):
+        return 0
+    else:
+        reward=color_reward(graph) + 10**6/shots_estimator(graph)
 
     return reward
 
@@ -320,8 +320,10 @@ def meas_reward(graph, wfn, n_qubit):
 
 def trajectory_balance_loss(logZ, log_P_F, log_P_B, reward):
     """Trajectory balance objective converted into mean squared error loss."""
-    return (logZ + log_P_F - torch.log(torch.tensor(reward)) - log_P_B).pow(2) 
+    reward=torch.tensor(reward).float()
+    return (logZ + log_P_F - torch.log(torch.clamp(reward, min=1e-30)) - log_P_B).pow(2)
 
 def trajectory_balance_loss_seq(logZ, log_P_F, reward):
     """Trajectory balance objective converted into mean squared error loss. Use sequential coloring, P_B=1"""
-    return (logZ + log_P_F - torch.log(torch.tensor(reward))).pow(2)   
+    reward=torch.tensor(reward).float()
+    return (logZ + log_P_F - torch.log(torch.clamp(reward, min=1e-30))).pow(2)  
