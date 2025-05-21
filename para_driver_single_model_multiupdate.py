@@ -103,11 +103,11 @@ def main(molecule):
     n_terms = nx.number_of_nodes(Gc)
 
     n_hid_units = 512
-    n_episodes = num_processes * 120
+    n_episodes = num_processes * 100
     learning_rate = 1e-3
     update_freq = 10
     seed = 45
-    fig_name = "Test"
+    fig_name = "Test_multiupdate"
 
     print("For all experiments, our hyperparameters will be:")
     print("    + n_hid_units={}".format(n_hid_units))

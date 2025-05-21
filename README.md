@@ -8,7 +8,7 @@ Copy and paste the commands in pip_installs.txt ensuring that there are no confl
 Reward functions can be
 1) color_reward based only on the number of colors 
 2) vqe_reward which contains the estimated number of measurements.
-3) meas_reward which in addition uses exact variances to get the measurement number.
+3) meas_reward which uses exact variances to get the measurement number.
 
 A mask function located in gflow_vqe/gflow_utils.py is employed to ensure that the generated graphs are valid and to limit the solution space, this limit can be changed by the user as required by modifying the line "mask[lower_bound+1:] = 0". 
 
@@ -34,6 +34,8 @@ We have 3 training protocols:
 Pure -> Start with a graph with the worst possible coloring.
 Colored_initial -> Start with a colored graph always.
 Precolored -> Every epoch give a new randomly colored graph. 
+
+Parallel training implemented, we have multiple models (1/process) in para driver and single-model versions where the updates occur on each processor or by collecting the results and updating outside the sampling parallel loop 
 
 Pending implementations!!
 
