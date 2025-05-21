@@ -520,8 +520,8 @@ def seq_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, upda
     losses, sampled_graphs, logZs = [], [], []
     minibatch_loss = 0
     # Determine upper limit
-    color_map = nx.coloring.greedy_color(graph, strategy="random_sequential")
-    bound=max(color_map.values())+10
+    color_map = nx.coloring.greedy_color(graph, strategy="largest_first")
+    bound=max(color_map.values())+ math.floor(0.1*max(color_map.values())) #
 
     tbar = trange(n_episodes, desc="Training iter")
     for episode in tbar:

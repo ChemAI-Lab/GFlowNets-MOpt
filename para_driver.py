@@ -111,7 +111,7 @@ def train_episode_seq(rank, graph, n_terms, n_hid_units, n_episodes, learning_ra
     minibatch_loss = 0
     # Determine upper limit
     color_map = nx.coloring.greedy_color(graph, strategy="random_sequential")
-    bound=max(color_map.values())+10
+    bound=max(color_map.values())+ math.floor(0.1*max(color_map.values())) #10
 
     tbar = trange(n_episodes, desc="Training iter")
     for episode in tbar:
@@ -125,7 +125,7 @@ def train_episode_seq(rank, graph, n_terms, n_hid_units, n_episodes, learning_ra
             new_state = state.copy()
             mask = calculate_forward_mask_from_state(new_state, t, bound)
             P_F_s = torch.where(mask, P_F_s, -100)  # Removes invalid forward actions.
-            P_F_s = torch.where(torch.isnan(P_F_s), torch.full_like(P_F_s, -100), P_F_s)
+            #P_F_s = torch.where(torch.isnan(P_F_s), torch.full_like(P_F_s, -100), P_F_s)
             # Sample the action and compute the new state.
             # Here P_F is logits, so we use Categorical to compute a softmax.
             categorical = Categorical(logits=P_F_s)
@@ -204,7 +204,7 @@ def main(molecule):
 
     n_hid_units = 512
     n_episodes = 1000 #num_processes*100
-    learning_rate = 3e-4
+    learning_rate = 1e-3
     update_freq = 10
     seed = 45
     fig_name = "Test"
