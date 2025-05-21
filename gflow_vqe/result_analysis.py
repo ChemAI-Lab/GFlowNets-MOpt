@@ -212,7 +212,7 @@ def check_sampled_graphs_fci_plot(figure, sampled_graphs, wfn, n_qubit):
     print('Proportion of valid graphs:{}, ideal=1'.format(
         sum([color_reward(i) > 0 for i in sampled_graphs]) / len(sampled_graphs)
     ))
-
+    
     # Sort graphs by reward, but filter out those with duplicate color dictionaries
     unique_graphs = []
     seen_color_dicts = set()
@@ -224,14 +224,23 @@ def check_sampled_graphs_fci_plot(figure, sampled_graphs, wfn, n_qubit):
             unique_graphs.append(graph)
 
     print('Number of unique graphs ={}'.format(len(unique_graphs)))
-    print('Number of shots for the best {} graphs'.format(n_plot))
+    print('Rewards for the best {} graphs'.format(n_plot))
 
     for i in range(n_plot):
       print('eps^2 M={} and max color {}. Reward= {}'.format(get_groups_measurement(unique_graphs[i], wfn, n_qubit), max_color(unique_graphs[i]),meas_reward(unique_graphs[i], wfn, n_qubit)))
       plt.sca(ax[i//4, i%4])
       plot_graph_wcolor_fci(unique_graphs[i], wfn, n_qubit)
-
+   
     plt.savefig(filename, format='png')
+
+    valid_graphs = [g for g in unique_graphs if color_reward(g) > 0]
+    valid_graphs = sorted(valid_graphs, key=lambda i: get_groups_measurement(i, wfn, n_qubit), reverse=False)
+
+    print('Number of valid graphs ={}'.format(len(valid_graphs)))
+    print('Measurements for the best {} valid graphs'.format(n_plot))
+
+    for i in range(n_plot):
+      print('eps^2 M={} and max color {}. Reward:{}'.format(get_groups_measurement(valid_graphs[i], wfn, n_qubit), max_color(valid_graphs[i]), meas_reward(valid_graphs[i], wfn, n_qubit)))
 
 def histogram_all_fci(figure, sampled_graphs, wfn, n_qubit):
     filename = f"{figure}_histo_all.svg"
