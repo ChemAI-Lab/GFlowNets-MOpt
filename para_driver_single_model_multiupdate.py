@@ -21,7 +21,8 @@ def train_episode(rank, model, optimizer, graph, n_terms, n_episodes, update_fre
     minibatch_loss = 0
     losses, sampled_graphs, logZs = [], [], []
     tbar = trange(n_episodes // mp.cpu_count(), desc=f"Process {rank} Training")
-    color_map = nx.coloring.greedy_color(graph, strategy="random_sequential")
+    color_map = nx.coloring.greedy_color(graph, strategy="largest_first")
+    #color_map = nx.coloring.greedy_color(graph, strategy="random_sequential")
     bound = max(color_map.values()) + 2
 
     for episode in tbar:
@@ -103,8 +104,8 @@ def main(molecule):
     n_terms = nx.number_of_nodes(Gc)
 
     n_hid_units = 512
-    n_episodes = num_processes * 1000
-    learning_rate = 1e-3
+    n_episodes = num_processes * 200
+    learning_rate = 5e-4
     update_freq = 10
     seed = 45
     fig_name = "Test_multiupdate_LiH"
