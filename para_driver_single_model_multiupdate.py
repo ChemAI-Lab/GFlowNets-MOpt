@@ -9,6 +9,16 @@ from gflow_vqe.result_analysis import *
 from multiprocessing import Manager
 import time
 
+def test_reward(graph, wfn, n_qubit):
+    """Reward is based on the number of colors we have. The lower cliques the better.
+    Invalid configs give 0. Additionally, employs 1/eps^2M where M is the number of Measurements
+    to achieve accuracy \eps as reward function. The lower number of shots, the better."""
+    if is_not_valid(graph):
+        return 0
+    else:
+        reward= color_reward(graph) + 10**3/get_groups_measurement(graph, wfn, n_qubit)
+
+    return reward
 
 def train_episode(rank, model, optimizer, graph, n_terms, n_episodes, update_freq, seed, wfn, n_q, lock):
     """Training function for each process. Uses sequential TB"""
@@ -41,7 +51,7 @@ def train_episode(rank, model, optimizer, graph, n_terms, n_episodes, update_fre
             total_log_P_F += categorical.log_prob(action)
 
             if t == nx.number_of_nodes(state) - 1:  # End of trajectory
-                reward = meas_reward(new_state, wfn, n_q)
+                reward = test_reward(new_state, wfn, n_q)
             else:
                 reward = 0
 
