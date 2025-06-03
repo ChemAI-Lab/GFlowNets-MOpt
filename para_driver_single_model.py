@@ -16,7 +16,7 @@ def test_reward(graph, wfn, n_qubit):
     if is_not_valid(graph):
         return 0
     else:
-        reward= color_reward(graph) + 10**3/get_groups_measurement(graph, wfn, n_qubit)
+        reward= 1/get_groups_measurement(graph, wfn, n_qubit)#color_reward(graph) + 10**3/get_groups_measurement(graph, wfn, n_qubit)
 
     return reward
 
@@ -58,6 +58,7 @@ def train_episode(rank, model, graph, n_terms, update_freq, seed, wfn, n_q):
                 reward = 0
 
             P_F_s = model(graph_to_tensor(new_state).to(device), n_terms)
+            #Only forward policy is needed in sequential TB
             # mask = calculate_backward_mask_from_state(new_state, t, bound).to(device)
             # P_B_s = torch.where(torch.isnan(P_B_s), torch.full_like(P_B_s, -100), P_B_s)
             # P_B_s = torch.where(mask, P_B_s, -100)
@@ -106,7 +107,7 @@ def main(molecule):
     n_hid_units = 512
     n_episodes = num_processes * 10
     learning_rate = 1e-3
-    update_freq = 10
+    update_freq = 2
     seed = 45
     fig_name = "Test"
 
@@ -127,6 +128,7 @@ def main(molecule):
 
             # Create the model and optimizer
             model = TBModel_seq(n_hid_units, n_terms)
+            #model = TBModel(n_hid_units, n_terms)
             model.share_memory()  # Share the model's parameters across processes
             optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
             # Spawn processes for training
