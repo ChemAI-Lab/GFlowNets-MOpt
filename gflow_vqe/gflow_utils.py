@@ -1,6 +1,11 @@
 import torch
 import torch.nn as nn
-from gflownet.envs.graph_building_env import *
+#from gflownet.envs.graph_building_env import *
+from networkx import Graph
+import networkx as nx
+from collections import defaultdict
+import torch
+import numpy as np
 
 
 class FlowModel(nn.Module):

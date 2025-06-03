@@ -1,4 +1,8 @@
-from gflownet.envs.graph_building_env import *
+#from gflownet.envs.graph_building_env import *
+from networkx import Graph
+import networkx as nx
+from collections import defaultdict
+import torch
 import random
 import math
 from tequila.hamiltonian import QubitHamiltonian, paulis
