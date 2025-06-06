@@ -9,6 +9,16 @@ from gflow_vqe.result_analysis import *
 from multiprocessing import Manager
 import time
 
+def test_reward(graph, wfn, n_qubit):
+    """Reward is based on the number of colors we have. The lower cliques the better.
+    Invalid configs give 0. Additionally, employs 1/eps^2M where M is the number of Measurements
+    to achieve accuracy \eps as reward function. The lower number of shots, the better."""
+    if is_not_valid(graph):
+        return 0
+    else:
+        reward= 1/get_groups_measurement(graph, wfn, n_qubit)#color_reward(graph) + 10**3/get_groups_measurement(graph, wfn, n_qubit)
+
+    return reward
 
 def train_episode(rank, graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q):
     """Training function for each process. Trajectory balance"""
@@ -41,19 +51,13 @@ def train_episode(rank, graph, n_terms, n_hid_units, n_episodes, learning_rate, 
             new_state = state.copy()
             mask = calculate_forward_mask_from_state(new_state, t, bound).to(device)
             P_F_s = torch.where(mask, P_F_s, -100)  # Removes invalid forward actions.
-            #P_F_s = torch.clamp(P_F_s, min=-1e6, max=1e6)
-            #P_F_s = torch.where(torch.isnan(P_F_s), torch.full_like(P_F_s, -100), P_F_s)
-            # if torch.isnan(P_F_s).any():
-            #     print(f"NaN detected in P_F_s at process {rank}, episode {episode}")
-            #     print(f"P_F_s: {P_F_s}")
-            #     raise ValueError("NaN detected in P_F_s")
             categorical = Categorical(logits=P_F_s)
             action = categorical.sample()
             new_state.nodes[t]['color'] = action.item()
             total_log_P_F += categorical.log_prob(action)
 
             if t == nx.number_of_nodes(state) - 1:  # End of trajectory
-                reward = meas_reward(new_state, wfn, n_q)
+                reward = test_reward(new_state, wfn, n_q)
             else:
                 reward = 0
 
@@ -203,7 +207,7 @@ def main(molecule):
     ###########################
 
     n_hid_units = 512
-    n_episodes = 100 #num_processes*100
+    n_episodes = 1000 #num_processes*100
     learning_rate = 1e-3
     update_freq = 10
     seed = 45
