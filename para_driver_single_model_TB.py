@@ -131,7 +131,7 @@ def main(molecule):
             # Create the model and optimizer
             #model = TBModel_seq(n_hid_units, n_terms)
             model = TBModel(n_hid_units, n_terms)
-            #model.share_memory()  # Share the model's parameters across processes
+            model.share_memory()  # Share the model's parameters across processes
             optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
             # Spawn processes for training
             mp.spawn(

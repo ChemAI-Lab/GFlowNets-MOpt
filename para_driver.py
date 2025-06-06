@@ -203,7 +203,7 @@ def main(molecule):
     ###########################
 
     n_hid_units = 512
-    n_episodes = 1000 #num_processes*100
+    n_episodes = 100 #num_processes*100
     learning_rate = 1e-3
     update_freq = 10
     seed = 45
