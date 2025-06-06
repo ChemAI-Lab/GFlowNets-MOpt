@@ -244,8 +244,9 @@ def check_sampled_graphs_fci_plot(figure, sampled_graphs, wfn, n_qubit):
 
 def histogram_all_fci(figure, sampled_graphs, wfn, n_qubit):
     filename = f"{figure}_histo_all.svg"
-    n_shots = [get_groups_measurement(i, wfn, n_qubit)*1E-3/(0.0016**2) for i in sampled_graphs]
-    color = [max_color(i) for i in sampled_graphs]
+    valid_graphs = [g for g in sampled_graphs if color_reward(g) > 0]
+    n_shots = [get_groups_measurement(i, wfn, n_qubit)*1E-3/(0.0016**2) for i in valid_graphs]
+    color = [max_color(i) for i in valid_graphs]
     print('Minimum number of groups found {}'.format(min(color)))
     x_bins = np.arange(min(color) - 0.5, max(color)  + 1.5, 1)  # Center the bars on integer ticks
     y_bins = np.linspace(min(n_shots), max(n_shots), 50)  # You can adjust the number of bins

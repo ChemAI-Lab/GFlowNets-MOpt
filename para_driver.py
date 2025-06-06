@@ -42,7 +42,7 @@ def train_episode(rank, graph, n_terms, n_hid_units, n_episodes, learning_rate, 
             mask = calculate_forward_mask_from_state(new_state, t, bound).to(device)
             P_F_s = torch.where(mask, P_F_s, -100)  # Removes invalid forward actions.
             #P_F_s = torch.clamp(P_F_s, min=-1e6, max=1e6)
-            P_F_s = torch.where(torch.isnan(P_F_s), torch.full_like(P_F_s, -100), P_F_s)
+            #P_F_s = torch.where(torch.isnan(P_F_s), torch.full_like(P_F_s, -100), P_F_s)
             # if torch.isnan(P_F_s).any():
             #     print(f"NaN detected in P_F_s at process {rank}, episode {episode}")
             #     print(f"P_F_s: {P_F_s}")
@@ -60,7 +60,7 @@ def train_episode(rank, graph, n_terms, n_hid_units, n_episodes, learning_rate, 
             P_F_s, P_B_s = model(graph_to_tensor(new_state).to(device), n_terms)
             mask = calculate_backward_mask_from_state(new_state, t, bound).to(device)
             #P_B_s = torch.clamp(P_B_s, min=-1e6, max=1e6)
-            P_B_s = torch.where(torch.isnan(P_B_s), torch.full_like(P_B_s, -100), P_B_s)
+            #P_B_s = torch.where(torch.isnan(P_B_s), torch.full_like(P_B_s, -100), P_B_s)
             P_B_s = torch.where(mask, P_B_s, -100)
             total_log_P_B += Categorical(logits=P_B_s).log_prob(action)
 
