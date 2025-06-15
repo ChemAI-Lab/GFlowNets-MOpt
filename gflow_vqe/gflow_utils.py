@@ -55,7 +55,37 @@ class TBModel_seq(nn.Module):
     P_F = logits[..., :n_terms]
 
     return P_F
-  
+
+class embTBModel(nn.Module):
+  def __init__(self, num_hid, n_terms):
+    super().__init__()
+    num_emb_dim = 16  # Dimension of the embedding layer.
+    layer_1d = num_hid
+    layer_2d = num_hid 
+    layer_3d = num_hid
+    emb_layer = nn.Embedding(n_terms, embedding_dim=num_emb_dim)  # Embedding layer to convert input features to embeddings.
+    self.emb_layer = emb_layer
+    self.encode_layer = nn.Sequential(
+        nn.Linear(n_terms*num_emb_dim, layer_1d),  # layers (Number of Paulis) input features.
+        nn.LeakyReLU(),
+        nn.Linear(layer_1d, layer_2d),
+        nn.LeakyReLU(),
+        nn.Linear(layer_2d, layer_3d),
+        nn.LeakyReLU(),
+    )
+    self.logits_layer = nn.Linear(layer_3d, 2*n_terms)
+    self.logZ = nn.Parameter(torch.ones(1))  # log Z is just a single number.
+
+  def forward(self, x, n_terms):
+    x_emb = self.emb_layer(x.long())  # Convert input features to embeddings.
+    x_encoded = self.encode_layer(x_emb.flatten().unsqueeze(0))
+    logits = self.logits_layer(x_encoded)
+    # Slice the logits into forward and backward policies.
+    P_F = logits[..., :n_terms]
+    P_B = logits[..., n_terms:]
+
+    return P_F, P_B
+    
 def calculate_forward_mask_from_state(state, t, lower_bound):
     """We want to mask the sampling to avoid any potential loss of time while training.
     In order to do so, we will have an upper bound on the number of colors used. Additionally,
