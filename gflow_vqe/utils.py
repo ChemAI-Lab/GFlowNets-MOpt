@@ -330,4 +330,15 @@ def trajectory_balance_loss(logZ, log_P_F, log_P_B, reward):
 def trajectory_balance_loss_seq(logZ, log_P_F, reward):
     """Trajectory balance objective converted into mean squared error loss. Use sequential coloring, P_B=1"""
     reward=torch.tensor(reward).float()
-    return (logZ + log_P_F - torch.log(torch.clamp(reward, min=1e-30))).pow(2)  
+    return (logZ + log_P_F - torch.log(torch.clamp(reward, min=1e-30))).pow(2)
+
+def my_reward(graph, wfn, n_qubit):
+    """Reward for testing hyperparameters.
+    Invalid configs give 0. Additionally, employs 1/eps^2M where M is the number of Measurements
+    to achieve accuracy \eps as reward function. The lower number of shots, the better."""
+    if is_not_valid(graph):
+        return 0
+    else:
+        reward= 10**3/get_groups_measurement(graph, wfn, n_qubit)
+
+    return reward  

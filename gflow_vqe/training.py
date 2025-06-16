@@ -621,7 +621,7 @@ def emb_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, upda
             #If a trajectory is complete. in TB we don't need to calculate parents.
             if t == nx.number_of_nodes(state)-1:  # End of trajectory.
             # We calculate the reward
-                reward = meas_reward(new_state,wfn,n_q)
+                reward = my_reward(new_state,wfn,n_q)
                 #reward = vqe_reward(new_state)
             
             # We recompute P_F and P_B for new_state.
