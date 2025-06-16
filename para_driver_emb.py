@@ -107,9 +107,9 @@ def main(molecule):
     n_terms = nx.number_of_nodes(Gc)
 
     n_hid_units = 512
-    n_episodes = num_processes * 10
+    n_episodes = num_processes * 30
     learning_rate = 1e-3
-    update_freq = 10
+    update_freq = 1
     seed = 45
     fig_name = "Test"
 
