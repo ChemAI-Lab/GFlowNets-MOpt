@@ -642,3 +642,4 @@ def emb_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, upda
             total_log_P_B,
             reward,
         )
+    return sampled_graphs, losses
