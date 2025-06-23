@@ -662,16 +662,17 @@ def emb_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, upda
     return sampled_graphs, losses
 
 def GIN_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q, fig_name):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     set_seed(seed)
 
     # Instantiate model and optimizer
-    model = GIN(n_hid_units,n_terms)
+    model = GIN(n_hid_units,n_terms).to(device)
     opt = torch.optim.Adam(model.parameters(),  learning_rate)
     # Attributes and batch for GNN
-    edge_index = generate_edge_index(graph)
+    edge_index = generate_edge_index(graph).to(device)
     # let's try to see if we can "negativly" affect nodes that are connected
-    edge_attr = -1. * torch.ones((edge_index.shape[1],1),dtype=torch.long)
+    edge_attr = -1. * torch.ones((edge_index.shape[1],1),dtype=torch.long, device=device)
     # Accumulate losses here and take a
     # gradient step every `update_freq` episode (at the end of each trajectory).
     losses, sampled_graphs, logZs = [], [], []
@@ -683,7 +684,9 @@ def GIN_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, upda
     tbar = trange(n_episodes, desc="Training iter")
     for episode in tbar:
         state = graph  # Each episode starts with the initially colored graph
-        data = Data(x=graph_to_tensor(state).unsqueeze(1).long(), edge_index=edge_index, edge_attr=edge_attr)
+        x = graph_to_tensor(state).unsqueeze(1).long().to(device)
+        data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
+        #data = Data(x=graph_to_tensor(state).unsqueeze(1).long(), edge_index=edge_index, edge_attr=edge_attr)
         P_F_s, P_B_s = model(data.x, data.edge_index, data.edge_attr, data.batch)
         #P_F_s, P_B_s = model(graph_to_tensor(state).unsqueeze(1).long(),n_terms, edge_attr, batch=1)  # Forward and backward policy
         total_log_P_F, total_log_P_B = 0, 0
@@ -692,7 +695,7 @@ def GIN_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, upda
 
             #Mask calculator
             new_state = state.copy()
-            mask = calculate_forward_mask_from_state(new_state, t, bound)
+            mask = calculate_forward_mask_from_state(new_state, t, bound).to(device)
             P_F_s = torch.where(mask, P_F_s, -100)  # Removes invalid forward actions.
             # Sample the action and compute the new state.
             # Here P_F is logits, so we use Categorical to compute a softmax.
@@ -709,10 +712,11 @@ def GIN_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, upda
                 #reward = vqe_reward(new_state)
 
             # We recompute P_F and P_B for new_state.
-            data = Data(x=graph_to_tensor(new_state).unsqueeze(1).long(), edge_index=edge_index, edge_attr=edge_attr)
+            x = graph_to_tensor(new_state).unsqueeze(1).long().to(device)
+            data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
             P_F_s, P_B_s = model(data.x, data.edge_index, data.edge_attr, data.batch)
             #P_F_s, P_B_s = model(graph_to_tensor(new_state).unsqueeze(1).long(),n_terms, edge_attr, batch=1)
-            mask = calculate_backward_mask_from_state(new_state, t, bound)
+            mask = calculate_backward_mask_from_state(new_state, t, bound).to(device)
             P_B_s = torch.where(mask, P_B_s, -100)  # Removes invalid backward actions.
 
             # Accumulate P_B, going backwards from `new_state`.
@@ -739,10 +743,11 @@ def GIN_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, upda
             opt.zero_grad()
             minibatch_loss = 0
             torch.save({
-            'epoch': episode,
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': opt.state_dict(),
-            'loss': losses,
-            }, fig_name + "_ginTBmodel.pth")
-            
+                'epoch': episode,
+                'model_state_dict': model.cpu().state_dict(),  # move to CPU before saving
+                'optimizer_state_dict': opt.state_dict(),
+                'loss': losses,
+                }, fig_name + "_ginTBmodel.pth")
+            model.to(device)  # Move it back if training will continue
+
     return sampled_graphs, losses

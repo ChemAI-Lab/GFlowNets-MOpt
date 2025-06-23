@@ -106,16 +106,16 @@ class GIN(torch.nn.Module):
             nn.Sequential(nn.Linear(dim_h, dim_h), nn.BatchNorm1d(dim_h), nn.ReLU(),
                        nn.Linear(dim_h, dim_h), nn.ReLU()),
                       edge_dim=1)
-        self.conv3 = GINEConv(
-            nn.Sequential(nn.Linear(dim_h, dim_h), nn.BatchNorm1d(dim_h), nn.ReLU(),
-                       nn.Linear(dim_h, dim_h), nn.ReLU()),
-                      edge_dim=1)
+        # self.conv3 = GINEConv(
+        #     nn.Sequential(nn.Linear(dim_h, dim_h), nn.BatchNorm1d(dim_h), nn.ReLU(),
+        #                nn.Linear(dim_h, dim_h), nn.ReLU()),
+        #               edge_dim=1)
 
         self.logZ = nn.Parameter(torch.ones(1))  # log Z is just a single number
 
         # prediction of forward and backward probablity
-        self.lin_logitz_f = nn.Sequential(nn.Linear(dim_h*3, dim_h), nn.ReLU(), nn.Linear(dim_h, self.n_terms))
-        self.lin_logitz_b = nn.Sequential(nn.Linear(dim_h*3, dim_h), nn.ReLU(), nn.Linear(dim_h, self.n_terms))
+        self.lin_logitz_f = nn.Sequential(nn.Linear(dim_h*2, dim_h), nn.ReLU(), nn.Linear(dim_h, self.n_terms))
+        self.lin_logitz_b = nn.Sequential(nn.Linear(dim_h*2, dim_h), nn.ReLU(), nn.Linear(dim_h, self.n_terms))
 
     def forward(self, x, edge_index, edge_attr, batch):
         # x = x.unsqueeze(0)
@@ -125,15 +125,15 @@ class GIN(torch.nn.Module):
 
         h1 = self.conv1(x, edge_index, edge_attr)
         h2 = self.conv2(h1, edge_index, edge_attr)
-        h3 = self.conv3(h2, edge_index, edge_attr)
+        #h3 = self.conv3(h2, edge_index, edge_attr)
 
         # Graph-level readout
         h1 = global_add_pool(h1, batch)
         h2 = global_add_pool(h2, batch)
-        h3 = global_add_pool(h3, batch)
+        # h3 = global_add_pool(h3, batch)
 
         # Concatenate graph embeddings
-        h = torch.cat((h1, h2, h3), dim=1)
+        h = torch.cat((h1, h2), dim=1)
 
         # # Classifier
         logits_f = self.lin_logitz_f(h)
