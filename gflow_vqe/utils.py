@@ -341,4 +341,12 @@ def my_reward(graph, wfn, n_qubit):
     else:
         reward= 10**3/get_groups_measurement(graph, wfn, n_qubit)
 
-    return reward  
+    return reward
+
+def generate_edge_index(graph):
+  edge_index = torch.tensor([[0,],
+                            [0,]], dtype=torch.long)
+  for ij in graph.edges:
+      edge_index = torch.cat((edge_index, torch.tensor([[ij[0]],[ij[1]]], dtype=torch.long)), dim=1)
+      edge_index = torch.cat((edge_index, torch.tensor([[ij[1]],[ij[0]]], dtype=torch.long)), dim=1)
+  return edge_index[:,1:].contiguous()

@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
-#from gflownet.envs.graph_building_env import *
+from torch_geometric.nn import GINConv, GINEConv
+from torch_geometric.nn import global_mean_pool, global_add_pool
+from torch_geometric.data import Data
 from networkx import Graph
 import networkx as nx
 from collections import defaultdict
@@ -85,7 +87,59 @@ class embTBModel(nn.Module):
     P_B = logits[..., n_terms:]
 
     return P_F, P_B
-    
+
+class GIN(torch.nn.Module):
+    """GIN"""
+    def __init__(self, dim_h, n_terms, num_emb_dim = 16):
+        super(GIN, self).__init__()
+        self.n_terms = n_terms # number of colors
+        self.num_emb_dim = num_emb_dim # embeding dimension for colors
+
+        self.emb_layer = nn.Embedding(n_terms, embedding_dim=self.num_emb_dim)  # Embedding layer to convert input features to embeddings.
+
+        self.conv1 = GINEConv(
+            nn.Sequential(nn.Linear(self.num_emb_dim, dim_h),
+                       nn.BatchNorm1d(dim_h), nn.ReLU(),
+                       nn.Linear(dim_h, dim_h), nn.ReLU()),
+                      edge_dim=1)
+        self.conv2 = GINEConv(
+            nn.Sequential(nn.Linear(dim_h, dim_h), nn.BatchNorm1d(dim_h), nn.ReLU(),
+                       nn.Linear(dim_h, dim_h), nn.ReLU()),
+                      edge_dim=1)
+        self.conv3 = GINEConv(
+            nn.Sequential(nn.Linear(dim_h, dim_h), nn.BatchNorm1d(dim_h), nn.ReLU(),
+                       nn.Linear(dim_h, dim_h), nn.ReLU()),
+                      edge_dim=1)
+
+        self.logZ = nn.Parameter(torch.ones(1))  # log Z is just a single number
+
+        # prediction of forward and backward probablity
+        self.lin_logitz_f = nn.Sequential(nn.Linear(dim_h*3, dim_h), nn.ReLU(), nn.Linear(dim_h, self.n_terms))
+        self.lin_logitz_b = nn.Sequential(nn.Linear(dim_h*3, dim_h), nn.ReLU(), nn.Linear(dim_h, self.n_terms))
+
+    def forward(self, x, edge_index, edge_attr, batch):
+        # x = x.unsqueeze(0)
+        # Node embeddings
+        x = self.emb_layer(x)
+        x = x.squeeze(1)
+
+        h1 = self.conv1(x, edge_index, edge_attr)
+        h2 = self.conv2(h1, edge_index, edge_attr)
+        h3 = self.conv3(h2, edge_index, edge_attr)
+
+        # Graph-level readout
+        h1 = global_add_pool(h1, batch)
+        h2 = global_add_pool(h2, batch)
+        h3 = global_add_pool(h3, batch)
+
+        # Concatenate graph embeddings
+        h = torch.cat((h1, h2, h3), dim=1)
+
+        # # Classifier
+        logits_f = self.lin_logitz_f(h)
+        logits_b = self.lin_logitz_b(h)
+        return  logits_f, logits_b
+
 def calculate_forward_mask_from_state(state, t, lower_bound):
     """We want to mask the sampling to avoid any potential loss of time while training.
     In order to do so, we will have an upper bound on the number of colors used. Additionally,
