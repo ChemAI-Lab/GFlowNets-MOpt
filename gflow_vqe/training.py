@@ -777,7 +777,8 @@ def GIN_2GPU_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate,
     for episode in tbar:
         state = graph  # Each episode starts with the initially colored graph
         x = graph_to_tensor(state).unsqueeze(1).long()
-        data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
+        batch = torch.zeros(x.size(0), dtype=torch.long)
+        data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, batch=batch)
         #data = Data(x=graph_to_tensor(state).unsqueeze(1).long(), edge_index=edge_index, edge_attr=edge_attr)
         P_F_s, P_B_s = model(data.x, data.edge_index, data.edge_attr, data.batch)
         #P_F_s, P_B_s = model(graph_to_tensor(state).unsqueeze(1).long(),n_terms, edge_attr, batch=1)  # Forward and backward policy
@@ -805,7 +806,8 @@ def GIN_2GPU_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate,
 
             # We recompute P_F and P_B for new_state.
             x = graph_to_tensor(new_state).unsqueeze(1).long()
-            data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
+            batch = torch.zeros(x.size(0), dtype=torch.long)
+            data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, batch=batch)
             P_F_s, P_B_s = model(data.x, data.edge_index, data.edge_attr, data.batch)
             #P_F_s, P_B_s = model(graph_to_tensor(new_state).unsqueeze(1).long(),n_terms, edge_attr, batch=1)
             mask = calculate_backward_mask_from_state(new_state, t, bound)
