@@ -140,6 +140,74 @@ class GIN(torch.nn.Module):
         logits_b = self.lin_logitz_b(h)
         return  logits_f, logits_b
 
+class GIN_2GPUParallel(nn.Module):
+    def __init__(self, dim_h, n_terms, num_emb_dim):
+        super().__init__()
+        self.n_terms = n_terms
+        self.num_emb_dim = num_emb_dim
+
+        self.emb_layer = nn.Embedding(n_terms, embedding_dim=num_emb_dim).to('cuda:0')
+
+        self.conv1 = GINEConv(
+            nn.Sequential(
+                nn.Linear(num_emb_dim, dim_h),
+                nn.BatchNorm1d(dim_h),
+                nn.ReLU(),
+                nn.Linear(dim_h, dim_h),
+                nn.ReLU()
+            ), edge_dim=1).to('cuda:0')
+
+        self.conv2 = GINEConv(
+            nn.Sequential(
+                nn.Linear(dim_h, dim_h),
+                nn.BatchNorm1d(dim_h),
+                nn.ReLU(),
+                nn.Linear(dim_h, dim_h),
+                nn.ReLU()
+            ), edge_dim=1).to('cuda:1')  # Second layer on second GPU
+
+        self.lin_logitz_f = nn.Sequential(
+            nn.Linear(dim_h * 2, dim_h),
+            nn.ReLU(),
+            nn.Linear(dim_h, n_terms)
+        ).to('cuda:1')
+
+        self.lin_logitz_b = nn.Sequential(
+            nn.Linear(dim_h * 2, dim_h),
+            nn.ReLU(),
+            nn.Linear(dim_h, n_terms)
+        ).to('cuda:1')
+
+        self.logZ = nn.Parameter(torch.ones(1).to('cuda:1'))
+
+    def forward(self, x, edge_index, edge_attr, batch):
+        # x on cuda:0
+        x = x.to('cuda:0')
+        edge_index = edge_index.to('cuda:0')
+        edge_attr = edge_attr.to('cuda:0')
+        batch0 = batch.to('cuda:0')
+
+        x = self.emb_layer(x)
+        x = x.squeeze(1)
+
+        h1 = self.conv1(x, edge_index, edge_attr)
+        h1 = h1.to('cuda:1')
+        edge_index = edge_index.to('cuda:1')
+        edge_attr = edge_attr.to('cuda:1')
+        batch1 = batch0.to('cuda:1')
+
+        h2 = self.conv2(h1, edge_index, edge_attr)
+
+        h1_pool = global_add_pool(h1, batch1)
+        h2_pool = global_add_pool(h2, batch1)
+
+        h = torch.cat((h1_pool, h2_pool), dim=1)
+
+        logits_f = self.lin_logitz_f(h)
+        logits_b = self.lin_logitz_b(h)
+
+        return logits_f, logits_b
+    
 def calculate_forward_mask_from_state(state, t, lower_bound):
     """We want to mask the sampling to avoid any potential loss of time while training.
     In order to do so, we will have an upper bound on the number of colors used. Additionally,
