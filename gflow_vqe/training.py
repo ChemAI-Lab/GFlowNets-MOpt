@@ -753,7 +753,6 @@ def GIN_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, upda
     return sampled_graphs, losses
 
 def GIN_2GPU_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q, fig_name,n_emb, device_ids):
-    #device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     set_seed(seed)
 
@@ -779,9 +778,7 @@ def GIN_2GPU_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate,
         x = graph_to_tensor(state).unsqueeze(1).long()
         batch = torch.zeros(x.size(0), dtype=torch.long)
         data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, batch=batch)
-        #data = Data(x=graph_to_tensor(state).unsqueeze(1).long(), edge_index=edge_index, edge_attr=edge_attr)
         P_F_s, P_B_s = model(data.x, data.edge_index, data.edge_attr, data.batch)
-        #P_F_s, P_B_s = model(graph_to_tensor(state).unsqueeze(1).long(),n_terms, edge_attr, batch=1)  # Forward and backward policy
         total_log_P_F, total_log_P_B = 0, 0
 
         for t in range(nx.number_of_nodes(state)):  # All trajectories as length the number of nodes
@@ -794,7 +791,6 @@ def GIN_2GPU_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate,
             # Here P_F is logits, so we use Categorical to compute a softmax.
             categorical = Categorical(logits=P_F_s)
             action = categorical.sample()
-            #print('Action {}'.format(action))
             new_state.nodes[t]['color'] = action.item()
             total_log_P_F += categorical.log_prob(action)  # Accumulate the log_P_F sum.
 
@@ -809,7 +805,6 @@ def GIN_2GPU_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate,
             batch = torch.zeros(x.size(0), dtype=torch.long)
             data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, batch=batch)
             P_F_s, P_B_s= model(data.x, data.edge_index, data.edge_attr, data.batch)
-            #P_F_s, P_B_s = model(graph_to_tensor(new_state).unsqueeze(1).long(),n_terms, edge_attr, batch=1)
             mask = calculate_backward_mask_from_state(new_state, t, bound).to('cuda:1')
             P_B_s = torch.where(mask, P_B_s, -100)  # Removes invalid backward actions.
 
