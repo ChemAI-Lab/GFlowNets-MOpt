@@ -831,7 +831,7 @@ def GIN_2GPU_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate,
         sampled_graphs.append(state)
         if episode % update_freq == 0:
             losses.append(minibatch_loss.item())
-            logZs.append(model.module.logZ.item())
+            logZs.append(model.logZ.item())
             minibatch_loss.backward()
             opt.step()
             opt.zero_grad()
