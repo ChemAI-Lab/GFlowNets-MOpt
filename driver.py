@@ -40,6 +40,8 @@ n_episodes = 1000
 learning_rate = 3e-4
 update_freq = 10
 seed = 45
+n_emb_dim = 16  # Dimension of the embedding layer.
+device_ids=[0, 1] #Number of GPUs to use, if available. If you have only one GPU, set this to [0]. If you have two GPUs, set this to [0, 1].
 fig_name = "H2"
 
 print("For all experiments, our hyperparameters will be:")
@@ -47,8 +49,8 @@ print("    + n_hid_units={}".format(n_hid_units))
 print("    + n_episodes={}".format(n_episodes))
 print("    + learning_rate={}".format(learning_rate))
 print("    + update_freq={}".format(update_freq))
-
-
+print("    + seed={}".format(seed))
+print("    + n_emb_dim={}".format(n_emb_dim))
 ##################################
 # Training Loop!! ################
 ##################################
@@ -60,7 +62,7 @@ print("    + update_freq={}".format(update_freq))
 #sampled_graphs, losses = precolored_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name)
 #sampled_graphs, losses = pure_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name)
 #sampled_graphs, losses = seq_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name)
-sampled_graphs, losses = GIN_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name)
+sampled_graphs, losses = GIN_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim,device_ids)
 
 ##################################
 #Timing###########################

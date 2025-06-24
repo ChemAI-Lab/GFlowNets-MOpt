@@ -661,13 +661,14 @@ def emb_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, upda
 
     return sampled_graphs, losses
 
-def GIN_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q, fig_name):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+def GIN_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q, fig_name,n_emb, device_ids):
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     set_seed(seed)
 
     # Instantiate model and optimizer
-    model = GIN(n_hid_units,n_terms).to(device)
+    model = GIN(n_hid_units, n_terms, n_emb).to(device)
+    model = torch.nn.DataParallel(model, device_ids)
     opt = torch.optim.Adam(model.parameters(),  learning_rate)
     # Attributes and batch for GNN
     edge_index = generate_edge_index(graph).to(device)
@@ -727,7 +728,7 @@ def GIN_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, upda
         # We're done with the trajectory, let's compute its loss. Since the reward
         # can sometimes be zero, instead of log(0) we'll clip the log-reward to -20.
         minibatch_loss += trajectory_balance_loss(
-            model.logZ,
+            model.module.logZ,
             total_log_P_F,
             total_log_P_B,
             reward,
@@ -737,7 +738,7 @@ def GIN_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, upda
         sampled_graphs.append(state)
         if episode % update_freq == 0:
             losses.append(minibatch_loss.item())
-            logZs.append(model.logZ.item())
+            logZs.append(model.module.logZ.item())
             minibatch_loss.backward()
             opt.step()
             opt.zero_grad()

@@ -90,7 +90,7 @@ class embTBModel(nn.Module):
 
 class GIN(torch.nn.Module):
     """GIN"""
-    def __init__(self, dim_h, n_terms, num_emb_dim = 16):
+    def __init__(self, dim_h, n_terms, num_emb_dim):
         super(GIN, self).__init__()
         self.n_terms = n_terms # number of colors
         self.num_emb_dim = num_emb_dim # embeding dimension for colors
