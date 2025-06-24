@@ -5,8 +5,7 @@ from gflow_vqe.result_analysis import *
 from gflow_vqe.training import *
 import time
 
-assert torch.__version__.startswith('2.1') and 'cu121' in torch.__version__, "The Colab torch version has changed, you may need to edit the !pip install cell to install matching torch_geometric versions"
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+#device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 ########################
 #Hamiltonian definition#
 # and initialization   #
