@@ -727,7 +727,7 @@ def GIN_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, upda
         # We're done with the trajectory, let's compute its loss. Since the reward
         # can sometimes be zero, instead of log(0) we'll clip the log-reward to -20.
         minibatch_loss += trajectory_balance_loss(
-            model.module.logZ,
+            model.logZ,
             total_log_P_F,
             total_log_P_B,
             reward,
@@ -737,7 +737,7 @@ def GIN_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, upda
         sampled_graphs.append(state)
         if episode % update_freq == 0:
             losses.append(minibatch_loss.item())
-            logZs.append(model.module.logZ.item())
+            logZs.append(model.logZ.item())
             minibatch_loss.backward()
             opt.step()
             opt.zero_grad()
