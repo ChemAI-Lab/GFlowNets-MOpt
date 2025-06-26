@@ -30,6 +30,7 @@ CompMatrix=FC_CompMatrix(terms)
 #CompMatrix=QWC_CompMatrix(terms)
 Gc=obj_to_comp_graph(terms, CompMatrix)
 n_terms=nx.number_of_nodes(Gc)
+print("Number of terms in the Hamiltonian: {}".format(n_terms))
 ###########################
 # Parameters for GFlowNets#
 ###########################
@@ -63,6 +64,7 @@ print("    + n_emb_dim={}".format(n_emb_dim))
 #sampled_graphs, losses = seq_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name)
 #sampled_graphs, losses = GIN_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim)
 sampled_graphs, losses = GIN_2GPU_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim,device_ids)
+sampled_graphs, losses = GINcpu_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim)
 
 ##################################
 #Timing###########################
