@@ -43,6 +43,8 @@ seed = 45
 n_emb_dim = 16  # Dimension of the embedding layer.
 device_ids=[0, 1] #Number of GPUs to use, if available. If you have only one GPU, set this to [0]. If you have two GPUs, set this to [0, 1].
 fig_name = "H2"
+color_map = nx.coloring.greedy_color(Gc, strategy="random_sequential")
+bound=max(color_map.values())+2 #Use random sequential, Largest first or set manually.
 
 print("For all experiments, our hyperparameters will be:")
 print("    + n_hid_units={}".format(n_hid_units))
@@ -51,6 +53,7 @@ print("    + learning_rate={}".format(learning_rate))
 print("    + update_freq={}".format(update_freq))
 print("    + seed={}".format(seed))
 print("    + n_emb_dim={}".format(n_emb_dim))
+print("    + bound={}".format(bound))
 ##################################
 # Training Loop!! ################
 ##################################
@@ -67,6 +70,9 @@ print("    + n_emb_dim={}".format(n_emb_dim))
 #sampled_graphs, losses = GINcpu_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim)
 #sampled_graphs, losses = random_sampler(Gc, n_terms, n_hid_units, n_episodes, seed)
 sampled_graphs, losses = coeff_GIN_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim)
+sampled_graphs, losses = coeff_GIN_TB_training_wbound(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, bound)
+sampled_graphs, losses = GINcpu_TB_training_wbound(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, bound)
+
 
 ##################################
 #Timing###########################
