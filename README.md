@@ -35,12 +35,14 @@ Pure -> Start with a graph with the worst possible coloring.
 Colored_initial -> Start with a colored graph always.
 Precolored -> Every epoch give a new randomly colored graph. 
 
-Parallel training implemented, we have multiple models (1/process) in para driver and single-model versions where the updates occur on each processor or by collecting the results and updating outside the sampling parallel loop 
+Experimental! Parallel training implemented, we have multiple models (1/process) in para driver and single-model versions where the updates occur on each processor or by collecting the results and updating outside the sampling parallel loop 
+
+Graph Isomorphism Network model implemented
 
 Pending implementations!!
 
-1) Add reduced parent calculation since we are using sequential coloring. Multicoloring or group coloring.
-2) Measurement requirements using approximate Variances from ccsd/cisd
+1) Measurement requirements using approximate Variances from ccsd/cisd
+2) Test Graph Isomorphism Network without edges.
 
 After cloning, install the package as:
 pip install -e .
