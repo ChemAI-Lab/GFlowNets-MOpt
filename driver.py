@@ -69,9 +69,9 @@ print("    + bound={}".format(bound))
 #sampled_graphs, losses = GIN_2GPU_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim,device_ids)
 #sampled_graphs, losses = GINcpu_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim)
 #sampled_graphs, losses = random_sampler(Gc, n_terms, n_hid_units, n_episodes, seed)
-sampled_graphs, losses = coeff_GIN_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim)
+#sampled_graphs, losses = coeff_GIN_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim)
 sampled_graphs, losses = coeff_GIN_TB_training_wbound(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, bound)
-sampled_graphs, losses = GINcpu_TB_training_wbound(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, bound)
+#sampled_graphs, losses = GINcpu_TB_training_wbound(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, bound)
 
 
 ##################################
