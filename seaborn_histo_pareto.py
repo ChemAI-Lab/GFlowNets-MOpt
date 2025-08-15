@@ -30,7 +30,7 @@ fig_name = "LiH"
 with open(fig_name + "_sampled_graphs.p", 'rb') as f:
     sampled_graphs = pickle.load(f)
 #Sorting graphs.
-#sampled_graphs = sampled_graphs[4000:]
+sampled_graphs = sampled_graphs[4950:]
 print("Number of Graphs in file: {}".format(len(sampled_graphs)))
 # Step 2: Evaluate rewards
 points = []
@@ -69,8 +69,7 @@ g.ax_joint.plot(
     pareto_sorted[:, 0], pareto_sorted[:, 1],
     color="orange", marker="o", markersize=8, linewidth=1.5, label="Pareto front"
 ) #color = "red", "#FF8C00"
-g.ax_joint.legend(loc="best")
-g.set_axis_labels("$R_G$", "$N_P-R_G$")
+g.set_axis_labels("$\epsilon^2M(x)$", "$N_P-R_G(x)$",fontsize=14)
 
 # KDE marginals (filled)
 sns.kdeplot(x=x, ax=g.ax_marg_x, fill=True,color="purple")
@@ -84,13 +83,9 @@ g.ax_marg_y.tick_params(axis="y", labelleft=False)
 
 g.ax_joint.plot(
     0.276, 20, 
-    marker="d", color="red", markersize=5, linestyle="None", label="SI"
+    marker="D", color="red", markersize=7, linestyle="None", label="SI"
 )
+g.ax_joint.legend(loc="best")
 
-# Add text label near the point
-g.ax_joint.text(
-    0.276 + 0.005, 20 + 0.3,  # small offset so it doesn't overlap
-    "SI", color="red", fontsize=9
-)
 # 5) Save SVG at 600 dpi
 g.figure.savefig("pareto_joint_all.svg", format="svg", dpi=600, bbox_inches="tight")
