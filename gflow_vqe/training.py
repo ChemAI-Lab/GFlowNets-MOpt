@@ -932,7 +932,7 @@ def GINcpu_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, u
     return sampled_graphs, losses
 
 
-def random_sampler(graph, n_terms, n_hid_units, n_episodes, seed):
+def random_sampler_masked(graph, n_terms, n_hid_units, n_episodes, seed):
     set_seed(seed)
     
     # Instantiate model and optimizer
@@ -957,6 +957,36 @@ def random_sampler(graph, n_terms, n_hid_units, n_episodes, seed):
             P_F_s = torch.where(mask, P_F_s, -100)  # Removes invalid forward actions.
             # Sample the action and compute the new state.
             # Here P_F is logits, so we use Categorical to compute a softmax.
+            categorical = Categorical(logits=P_F_s)
+            action = categorical.sample()
+            #print('Action {}'.format(action))
+            new_state.nodes[t]['color'] = action.item()
+
+            state = new_state  # Continue iterating.
+
+        sampled_graphs.append(state)
+
+    return sampled_graphs, losses
+
+def random_sampler(graph, n_terms, n_hid_units, n_episodes, seed):
+    set_seed(seed)
+    
+    # Instantiate model and optimizer
+    model = TBModel_seq(n_hid_units,n_terms)
+    # Accumulate losses here and take a
+    # gradient step every `update_freq` episode (at the end of each trajectory).
+    losses, sampled_graphs= [], []
+
+    tbar = trange(n_episodes, desc="Training iter")
+    for episode in tbar:
+        state = graph  # Each episode starts with the initially colored graph
+        P_F_s = model(graph_to_tensor(state),n_terms)  # Forward and backward policy
+        
+        for t in range(nx.number_of_nodes(state)):  # All trajectories as length the number of nodes
+
+            #Mask calculator
+            new_state = state.copy()
+
             categorical = Categorical(logits=P_F_s)
             action = categorical.sample()
             #print('Action {}'.format(action))
