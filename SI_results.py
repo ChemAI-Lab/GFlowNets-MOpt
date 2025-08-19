@@ -5,8 +5,12 @@ from gflow_vqe.result_analysis import *
 from gflow_vqe.training import *
 from openfermion import commutator
 
-molecule = parser()
-mol, H, Hferm, n_paulis, Hq = molecule()
+#molecule = parser()
+#mol, H, Hferm, n_paulis, Hq = molecule()
+# For loaded Hams
+mol="lih"
+Hq, H = load_qubit_hamiltonian(mol)
+print("Number of Pauli products to measure: {}".format(len(Hq.terms) - 1))
 
 sparse_hamiltonian = get_sparse_operator(Hq)
 energy, psi = get_ground_state(sparse_hamiltonian)
