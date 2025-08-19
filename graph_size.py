@@ -35,5 +35,24 @@ CompMatrix=FC_CompMatrix(terms)
 #CompMatrix=QWC_CompMatrix(terms)
 Gc=obj_to_comp_graph(terms, CompMatrix)
 n_terms=nx.number_of_nodes(Gc)
+print("Results for FC grouping")
 print("Number of terms in the Hamiltonian: {}".format(n_terms))
 print(Gc)
+
+# Average number of neighbors (average degree)
+avg_neighbors = sum(dict(Gc.degree()).values()) / Gc.number_of_nodes()
+
+print("Average number of neighbors per node: {:.2f}".format(avg_neighbors))
+
+CompMatrix_qwc=QWC_CompMatrix(terms)
+Gc_qwc=obj_to_comp_graph(terms, CompMatrix_qwc)
+n_terms=nx.number_of_nodes(Gc)
+print("Results for QWC grouping")
+print("Number of terms in the Hamiltonian: {}".format(n_terms))
+print(Gc_qwc)
+
+# Average number of neighbors (average degree)
+avg_neighbors = sum(dict(Gc_qwc.degree()).values()) / Gc_qwc.number_of_nodes()
+
+print("Average number of neighbors per node: {:.2f}".format(avg_neighbors))
+
