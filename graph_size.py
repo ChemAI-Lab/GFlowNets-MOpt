@@ -10,14 +10,14 @@ import time
 #Hamiltonian definition#
 # and initialization   #
 ########################
-#molecule = parser()
-#mol, H, Hferm, n_paulis, Hq = molecule()
-#print("Number of Pauli products to measure: {}".format(n_paulis))
+molecule = parser()
+mol, H, Hferm, n_paulis, Hq = molecule()
+print("Number of Pauli products to measure: {}".format(n_paulis))
 ###############
 # For loaded Hams
-mol="lih"
-Hq, H = load_qubit_hamiltonian(mol)
-print("Number of Pauli products to measure: {}".format(len(Hq.terms) - 1))
+#mol="lih"
+#Hq, H = load_qubit_hamiltonian(mol)
+#print("Number of Pauli products to measure: {}".format(len(Hq.terms) - 1))
 
 ############################
 # Get FCI wfn for variance #
