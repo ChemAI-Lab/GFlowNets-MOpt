@@ -343,6 +343,17 @@ def my_reward(graph, wfn, n_qubit):
 
     return reward
 
+def custom_reward(graph, wfn, n_qubit,l0,l1):
+    """Reward is based on the number of colors we have. The lower cliques the better.
+    Invalid configs give 0. Additionally, employs 1/eps^2M where M is the number of Measurements
+    to achieve accuracy \eps as reward function. The lower number of shots, the better."""
+    if is_not_valid(graph):
+        return 0
+    else:
+        reward= l0/get_groups_measurement(graph, wfn, n_qubit) + l1*color_reward(graph)
+
+    return reward
+
 def generate_edge_index(graph):
   edge_index = torch.tensor([[0,],
                             [0,]], dtype=torch.long)
