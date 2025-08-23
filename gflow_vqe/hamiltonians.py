@@ -136,6 +136,22 @@ def H2O():
     Hferm = reverse_jordan_wigner(Hq)
     return mol, H, Hferm, len(Hq.terms) - 1, Hq #Minus 1 since it always contain a constant term that we don't need to measure.
 
+def H2Os():
+    '''
+    Return a test hamiltonian.
+    '''
+    trafo = "JordanWigner"
+    mol = tq.chemistry.Molecule(
+                            geometry="O 0.0 0.0 -0.1181211 \n H 0.0 -0.8069603 0.4724845 \n H 0.0 0.8069603 0.4724845",
+                            basis_set="sto3g",
+                            transformation=trafo,
+                            backend='pyscf'
+                                 )
+    H = mol.make_hamiltonian()
+    Hq = H.to_openfermion()
+    Hferm = reverse_jordan_wigner(Hq)
+    return mol, H, Hferm, len(Hq.terms) - 1, Hq #Minus 1 since it always contain a constant term that we don't need to measure
+
 def NH3():
     '''
     Return a test hamiltonian.
