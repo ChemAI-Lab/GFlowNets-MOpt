@@ -6,6 +6,8 @@ from gflow_vqe.training import *
 from openfermion import commutator
 import multiprocessing
 import seaborn as sns
+import matplotlib.ticker as mticker
+
 ########################
 #Hamiltonian definition#
 # and initialization   #
@@ -86,6 +88,11 @@ g.ax_joint.plot(
     marker="D", color="red", markersize=7, linestyle="None", label="SI"
 )
 g.ax_joint.legend(loc="best")
+
+# Fixed axis ranges
+g.ax_joint.set_xlim(0.55, 1.8)
+g.ax_joint.set_ylim(9, 30)
+g.ax_joint.yaxis.set_major_locator(mticker.MaxNLocator(integer=True))
 
 # 5) Save SVG at 600 dpi
 g.figure.savefig("pareto_joint_all.svg", format="svg", dpi=600, bbox_inches="tight")
