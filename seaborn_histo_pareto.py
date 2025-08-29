@@ -32,7 +32,8 @@ fig_name = "LiH"
 with open(fig_name + "_sampled_graphs.p", 'rb') as f:
     sampled_graphs = pickle.load(f)
 #Sorting graphs.
-sampled_graphs = sampled_graphs[4950:]
+sampled_graphs = [g for g in sampled_graphs if color_reward(g) > 0]
+#sampled_graphs = sampled_graphs[:4000]
 print("Number of Graphs in file: {}".format(len(sampled_graphs)))
 # Step 2: Evaluate rewards
 points = []
