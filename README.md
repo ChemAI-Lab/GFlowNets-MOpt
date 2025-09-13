@@ -1,5 +1,10 @@
-The purpose of this code is to generate groupings of molecular Hamiltonians for their implementation in Quantum Computers based on the number of measurements required to reach an accuracy $\varepsilon$ and the number of groups.
-GFlowNet generates different samples where the ones with higher probability are based on a reward function.
+# Discrete Flow-Based Generative Models for Measurement Optimization in Quantum Computing
+
+The purpose of this code is to generate groupings of molecular Hamiltonians for their implementation in Quantum Computers based on the number of measurements required to reach an accuracy $\varepsilon$ and the number of groups through a Generative Flow Networks (GFlowNets) based sampling.
+GFlowNet generates different samples where the probability of reaching a final state in the trajectory is proportional to its reward.
+
+![GFlowNet sampling protocol](GFlow.png)
+
 
 After cloning, install the package as:
 pip install -e .
@@ -19,7 +24,7 @@ Verify before running the reward function employed by the training protocol. The
 
 For the results of the paper ***"Discrete Flow-Based Generative Models for Measurement Optimization in Quantum Computing"***, we employed the training functions:
 ***GIN_TB_training*** corresponding to the GINE model described in the text.
-***coeff_GIN_TB_training*** corresponding to the GINE$_w$ model described in the text.
+***coeff_GIN_TB_training*** corresponding to the GINE~w model described in the text.
 ***coeff_GIN_TB_training_custom_reward***
 All of them using the ***my_reward*** or custom_reward Reward functions. The upper bound for the search space is generated through a greedy coloring algorithm with a random sequential strategy and increased +2
 

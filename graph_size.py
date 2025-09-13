@@ -41,8 +41,10 @@ print(Gc)
 
 # Average number of neighbors (average degree)
 avg_neighbors = sum(dict(Gc.degree()).values()) / Gc.number_of_nodes()
+max_degree= max(dict(Gc.degree()).values())
 
 print("Average number of neighbors per node: {:.2f}".format(avg_neighbors))
+print("Max degree", max_degree)
 
 CompMatrix_qwc=QWC_CompMatrix(terms)
 Gc_qwc=obj_to_comp_graph(terms, CompMatrix_qwc)
@@ -53,6 +55,7 @@ print(Gc_qwc)
 
 # Average number of neighbors (average degree)
 avg_neighbors = sum(dict(Gc_qwc.degree()).values()) / Gc_qwc.number_of_nodes()
-
+max_degree= max(dict(Gc_qwc.degree()).values())
 print("Average number of neighbors per node: {:.2f}".format(avg_neighbors))
+print("Max degree", max_degree)
 

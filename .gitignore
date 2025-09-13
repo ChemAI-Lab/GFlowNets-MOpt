@@ -3,7 +3,6 @@ gflow_vqe/__pycache__/*
 FC/*
 *.svg
 *.log
-*.png
 *.hdf5
 *.p
 *.pth
