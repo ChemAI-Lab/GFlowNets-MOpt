@@ -3,15 +3,15 @@
 The purpose of this code is to generate groupings of molecular Hamiltonians for their implementation in Quantum Computers based on the number of measurements required to reach an accuracy $\varepsilon$ and the number of groups through a Generative Flow Networks (GFlowNets) based sampling.
 GFlowNet generates different samples where the probability of reaching a final state in the trajectory is proportional to its reward.
 
-![GFlowNet sampling protocol](GFlow.png)
-
-
 After cloning, install the package as:
 pip install -e .
 
 Before you run make sure to have the proper packages installed in requirements.txt 
 or
-For most users installing: matplotlib, seaborn, pennylane, tequila-basic, pyscf, torch and torch_geometric would be enough.
+For most users installing: matplotlib, seaborn, pennylane, openfermion, tequila-basic, pyscf, torch and torch_geometric would be enough.
+
+![GFlowNet sampling protocol](GFlow.png)
+
 
 Reward functions can be
 1) ***color_reward*** based only on the number of colors.
