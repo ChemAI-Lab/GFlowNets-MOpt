@@ -4,7 +4,9 @@ The purpose of this code is to generate groupings of molecular Hamiltonians for 
 GFlowNet generates different samples where the probability of reaching a final state in the trajectory is proportional to its reward.
 
 After cloning, install the package as:
+```
 pip install -e .
+```
 
 Before you run make sure to have the proper packages installed in requirements.txt 
 or
@@ -27,12 +29,12 @@ For the results of the paper ***"Discrete Flow-Based Generative Models for Measu
 - ***coeff_GIN_TB_training*** corresponding to the $\texttt{GINE}_{w}$ model described in the text.
 - ***coeff_GIN_TB_training_custom_reward***
 
-All of them are using the ***my_reward*** or ***custom_reward*** Reward functions. The upper bound for the search space is generated through a greedy coloring algorithm with a random sequential strategy and increased by +2
+All of them are using the  `my_reward` or `custom_reward` Reward functions. The upper bound for the search space is generated through a greedy coloring algorithm with a random sequential strategy and increased by +2
 
-A mask function located in gflow_vqe/gflow_utils.py is employed to ensure that the generated graphs are valid and to limit the solution space. This limit can be changed by the user as required by employing the ***coeff_GIN_TB_training_wbound*** 
+A mask function located in `gflow_vqe/gflow_utils.py` is employed to ensure that the generated graphs are valid and to limit the solution space. This limit can be changed by the user as required by employing the `coeff_GIN_TB_training_wbound` 
 
 To generate a plot of commutativity graphs of the best-performing groupings, modify the driver.py file by calling 
-check_sampled_graphs_method_plot instead of check_sampled_graphs_method. Lines are commented for user convenience. For method=fci, full CI variances are employed, while the vqe option uses only an estimator for them. This also outputs the best performing graphs according to ***meas_reward***, and the valid graphs with the lowest measurement count. For ordering the graphs with respect to other reward functions (like the ones employed during training), we suggest taking the same function to a different file and modifying the reward according to the user's needs.
+`check_sampled_graphs_method_plot` instead of check_sampled_graphs_method. Lines are commented for user convenience. For method=fci, full CI variances are employed, while the vqe option uses only an estimator for them. This also outputs the best performing graphs according to `meas_reward`, and the valid graphs with the lowest measurement count. For ordering the graphs with respect to other reward functions (like the ones employed during training), we suggest taking the same function to a different file and modifying the reward according to the user's needs.
 
 NN parameters and optimizer state are saved for each molecule in the .pth file.
 All sampled graphs are saved as fig_name_sampled_graphs.p for data analysis or posterior use in quantum computing software.
