@@ -39,7 +39,9 @@ All sampled graphs are saved as fig_name_sampled_graphs.p for data analysis or p
 
 To run the code, use:
 
-***python driver.py molecule > out.log***
+```
+python driver.py molecule > out.log
+```
 
 Where molecule can be $H_2$, $H_4$, $LiH$, $BeH_2$, $H_2O$, $N_2$. The default bond distance is 1 Å. This can be modified in the gflow_vqe/hamiltonians.py file. 
 
