@@ -1,5 +1,7 @@
 # Discrete Flow-Based Generative Models for Measurement Optimization in Quantum Computing
 
+   <!--[![arXiv](https://img.shields.io/badge/arXiv-1234.56789-b31b1b.svg)](URL) -->
+
 The purpose of this code is to generate groupings of molecular Hamiltonians for their implementation in Quantum Computers based on the number of measurements required to reach an accuracy $\varepsilon$ and the number of groups through a Generative Flow Networks (GFlowNets) based sampling.
 GFlowNet generates different samples where the probability of reaching a final state in the trajectory is proportional to its reward.
 
