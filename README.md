@@ -48,6 +48,6 @@ python driver.py molecule > out.log
 Where molecule can be $H_2$, $H_4$, $LiH$, $BeH_2$, $H_2O$, $N_2$. The default bond distance is 1 Å. This can be modified in the gflow_vqe/hamiltonians.py file. 
 
 On driver.py, we can change parameters for GFlowNets like:
-fig_name, Training rate, number of hid_uinits, number of episodes, embedding dimension, update_freq and the random seed. We leave options for GPU usage, although we saw no real benefit. 
+`fig_name`, Training rate, number of `hid_uinits`, number of episodes, embedding dimension, `update_freq` and the random seed. We leave options for GPU usage, although we saw no real benefit. 
 
 Experimental! Parallel training implemented, we have multiple models (1/process) in the para driver and single-model versions where the updates occur on each processor or by collecting the results and updating outside the sampling parallel loop 
