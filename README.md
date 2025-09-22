@@ -1,6 +1,4 @@
-# Discrete Flow-Based Generative Models for Measurement Optimization in Quantum Computing
-
-   <!--[![arXiv](https://img.shields.io/badge/arXiv-1234.56789-b31b1b.svg)](URL) -->
+# Discrete Flow-Based Generative Models for Measurement Optimization in Quantum Computing [![arXiv](https://img.shields.io/badge/arXiv-2509.15486-b31b1b.svg)](https://arxiv.org/abs/2509.15486)
 
 The purpose of this code is to generate groupings of molecular Hamiltonians for their implementation in Quantum Computers based on the number of measurements required to reach an accuracy $\varepsilon$ and the number of groups through a Generative Flow Networks (GFlowNets) based sampling.
 GFlowNet generates different samples where the probability of reaching a final state in the trajectory is proportional to its reward.
@@ -52,4 +50,19 @@ Where molecule can be $H_2$, $H_4$, $LiH$, $BeH_2$, $H_2O$, $N_2$. The default b
 On driver.py, we can change parameters for GFlowNets like:
 `fig_name`, Training rate, number of `hid_uinits`, number of episodes, embedding dimension, `update_freq` and the random seed. We leave options for GPU usage, although we saw no real benefit. 
 
-Experimental! Parallel training implemented, we have multiple models (1/process) in the para driver and single-model versions where the updates occur on each processor or by collecting the results and updating outside the sampling parallel loop 
+Experimental! Parallel training implemented, we have multiple models (1/process) in the para driver and single-model versions where the updates occur on each processor or by collecting the results and updating outside the sampling parallel loop.
+
+
+## Bibtex
+
+```latex
+@misc{gflownets_mopt:2025,
+      title={Discrete Flow-Based Generative Models for Measurement Optimization in Quantum Computing}, 
+      author={Isaac L. Huidobro-Meezs and Jun Dai and Rodrigo A. Vargas-Hernández},
+      year={2025},
+      eprint={2509.15486},
+      archivePrefix={arXiv},
+      primaryClass={quant-ph},
+      url={https://arxiv.org/abs/2509.15486}, 
+}
+```
