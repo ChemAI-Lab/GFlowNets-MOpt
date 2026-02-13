@@ -47,7 +47,7 @@ update_freq = 10
 seed = 45
 n_emb_dim = 2  # Dimension of the embedding layer.
 device_ids=[0, 1] #Number of GPUs to use, if available. If you have only one GPU, set this to [0]. If you have two GPUs, set this to [0, 1].
-fig_name = "H2"
+fig_name = molecule.__name__
 color_map = nx.coloring.greedy_color(Gc, strategy="random_sequential")
 #bound=max(color_map.values())+2 #Use random sequential, Largest first or set manually.
 
@@ -63,8 +63,8 @@ print("    + n_emb_dim={}".format(n_emb_dim))
 # Training Loop!! ################
 ##################################
 #For custom reward, comment otherwise. 
-l0 = 0 #\Lambda_0 parameter for Measurement reward
-l1 = 1 #\Lambda_1 parameter for Color reward
+l0 = 1000 #\Lambda_0 parameter for Measurement reward
+l1 = 0 #\Lambda_1 parameter for Color reward
 
 print("For custom reward:")
 print("    + l0={}".format(l0))

@@ -1,256 +1,201 @@
-import torch
-import torch.multiprocessing as mp
-from tqdm import tqdm, trange
-from gflow_vqe.utils import *
-from gflow_vqe.gflow_utils import *
-from torch.distributions.categorical import Categorical
-from gflow_vqe.hamiltonians import *
-from gflow_vqe.result_analysis import *
-from multiprocessing import Manager
+import argparse
+import pickle
 import time
 
-def test_reward(graph, wfn, n_qubit):
-    """Reward is based on the number of colors we have. The lower cliques the better.
-    Invalid configs give 0. Additionally, employs 1/eps^2M where M is the number of Measurements
-    to achieve accuracy \eps as reward function. The lower number of shots, the better."""
-    if is_not_valid(graph):
-        return 0
-    else:
-        reward= 1/get_groups_measurement(graph, wfn, n_qubit)#color_reward(graph) + 10**3/get_groups_measurement(graph, wfn, n_qubit)
+import torch
+from openfermion.linalg import get_ground_state, get_sparse_operator
+from openfermion.utils import count_qubits
 
-    return reward
+from gflow_vqe.hamiltonians import *
+from gflow_vqe.para_utilities import run_parallel_graph_model_custom_reward_training
+from gflow_vqe.result_analysis import (
+    check_sampled_graphs_fci_plot,
+    histogram_all_fci,
+    plot_loss_curve,
+)
+from gflow_vqe.training import set_training_device
+from gflow_vqe.utils import BinaryHamiltonian, FC_CompMatrix, get_terms, obj_to_comp_graph
 
-def train_episode(rank, graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q):
-    """Training function for each process. Trajectory balance"""
-    #torch.cuda.set_device(0)  # Use GPU 0 for all processes
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    #device = torch.device("cpu")
-    #torch.cuda.set_per_process_memory_fraction(0.9 / mp.cpu_count(), device=0)  # Limit memory usage
 
-    # Set the seed for reproducibility
-    set_seed(seed + rank)
-
-    # Create the model and move it to the GPU
-    model = TBModel(n_hid_units, n_terms).to(device)
-
-    # Optimizer
-    opt = torch.optim.Adam(model.parameters(), lr=learning_rate)
-
-    # Training loop
-    minibatch_loss = 0
-    losses, sampled_graphs, logZs = [], [], []
-    tbar = trange(n_episodes // mp.cpu_count(), desc=f"Process {rank} Training")
-    color_map = nx.coloring.greedy_color(graph, strategy="random_sequential")
-    bound=max(color_map.values())+2
-    for episode in tbar:
-        state = graph.copy()  
-        P_F_s, P_B_s = model(graph_to_tensor(state).to(device), n_terms)  # Forward and backward policy
-        total_log_P_F, total_log_P_B = 0, 0
-
-        for t in range(nx.number_of_nodes(state)):
-            new_state = state.copy()
-            mask = calculate_forward_mask_from_state(new_state, t, bound).to(device)
-            P_F_s = torch.where(mask, P_F_s, -100)  # Removes invalid forward actions.
-            categorical = Categorical(logits=P_F_s)
-            action = categorical.sample()
-            new_state.nodes[t]['color'] = action.item()
-            total_log_P_F += categorical.log_prob(action)
-
-            if t == nx.number_of_nodes(state) - 1:  # End of trajectory
-                reward = test_reward(new_state, wfn, n_q)
-            else:
-                reward = 0
-
-            P_F_s, P_B_s = model(graph_to_tensor(new_state).to(device), n_terms)
-            mask = calculate_backward_mask_from_state(new_state, t, bound).to(device)
-            #P_B_s = torch.clamp(P_B_s, min=-1e6, max=1e6)
-            #P_B_s = torch.where(torch.isnan(P_B_s), torch.full_like(P_B_s, -100), P_B_s)
-            P_B_s = torch.where(mask, P_B_s, -100)
-            total_log_P_B += Categorical(logits=P_B_s).log_prob(action)
-
-            state = new_state
-
-        sampled_graphs.append(state)
-        minibatch_loss += trajectory_balance_loss(
-            model.logZ,
-            total_log_P_F,
-            total_log_P_B,
-            reward,
+def _build_problem(molecule_name: str):
+    molecule_fn = globals().get(molecule_name)
+    if molecule_fn is None:
+        raise ValueError(
+            "Unknown molecule '{}'. Expected one of the molecule functions in gflow_vqe.hamiltonians.".format(
+                molecule_name
+            )
         )
 
-        if episode % update_freq == 0:
-            logZs.append(model.logZ.item())
-            minibatch_loss.backward()
-            # Gradient clipping. Interesting to avoid exploding gradients. Good to know, not necessarily needed here
-            #torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-            opt.step()
-            opt.zero_grad()
-            losses.append(minibatch_loss.item())
-            minibatch_loss = 0
-
-    return sampled_graphs, losses
-    
-def train_wrapper(rank, shared_results, *args):
-    sampled_graphs, losses = train_episode(rank, *args)
-    print(f"Process {rank} finished training.")
-    shared_results.append((sampled_graphs, losses))
-
-def train_episode_seq(rank, graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q):
-    """Training function for each process. Trajectory balance"""
-    #torch.cuda.set_device(0)  # Use GPU 0 for all processes
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    #device = torch.device("cpu")
-    #torch.cuda.set_per_process_memory_fraction(0.9 / mp.cpu_count(), device=0)  # Limit memory usage
-
-    # Set the seed for reproducibility
-    set_seed(seed + rank)
-
-    # Instantiate model and optimizer
-    model = TBModel_seq(n_hid_units,n_terms)
-    opt = torch.optim.Adam(model.parameters(),  learning_rate)
-
-    # Accumulate losses here and take a
-    # gradient step every `update_freq` episode (at the end of each trajectory).
-    losses, sampled_graphs, logZs = [], [], []
-    minibatch_loss = 0
-    # Determine upper limit
-    color_map = nx.coloring.greedy_color(graph, strategy="random_sequential")
-    bound=max(color_map.values())+ math.floor(0.1*max(color_map.values())) #10
-
-    tbar = trange(n_episodes, desc="Training iter")
-    for episode in tbar:
-        state = graph  # Each episode starts with the initially colored graph
-        P_F_s = model(graph_to_tensor(state),n_terms)  # Forward and backward policy
-        total_log_P_F = 0
-        
-        for t in range(nx.number_of_nodes(state)):  # All trajectories as length the number of nodes
-
-            #Mask calculator
-            new_state = state.copy()
-            mask = calculate_forward_mask_from_state(new_state, t, bound)
-            P_F_s = torch.where(mask, P_F_s, -100)  # Removes invalid forward actions.
-            #P_F_s = torch.where(torch.isnan(P_F_s), torch.full_like(P_F_s, -100), P_F_s)
-            # Sample the action and compute the new state.
-            # Here P_F is logits, so we use Categorical to compute a softmax.
-            categorical = Categorical(logits=P_F_s)
-            action = categorical.sample()
-            #print('Action {}'.format(action))
-            new_state.nodes[t]['color'] = action.item()
-            total_log_P_F += categorical.log_prob(action)  # Accumulate the log_P_F sum.
-
-            #If a trajectory is complete. in TB we don't need to calculate parents.
-            if t == nx.number_of_nodes(state)-1:  # End of trajectory.
-            # We calculate the reward
-                reward = meas_reward(new_state,wfn,n_q)
-                #reward = vqe_reward(new_state)
-            
-            # We recompute P_F and P_B for new_state.
-            P_F_s = model(graph_to_tensor(new_state),n_terms)
-
-            state = new_state  # Continue iterating.
-
-        # We're done with the trajectory, let's compute its loss. Since the reward
-        # can sometimes be zero, instead of log(0) we'll clip the log-reward to -20.
-        minibatch_loss += trajectory_balance_loss_seq(
-            model.logZ,
-            total_log_P_F,
-            reward,
-        )
-
-    # We're done with the episode, add the graph to the list, and if we are at an
-    # update episode, take a gradient step.
-        sampled_graphs.append(state)
-        if episode % update_freq == 0:
-            losses.append(minibatch_loss.item())
-            logZs.append(model.logZ.item())
-            minibatch_loss.backward()
-            opt.step()
-            opt.zero_grad()
-            minibatch_loss = 0
-            # torch.save({
-            # 'epoch': episode,
-            # 'model_state_dict': model.state_dict(),
-            # 'optimizer_state_dict': opt.state_dict(),
-            # 'loss': losses,
-            # }, fig_name + "_pureTBmodel_seq.pth")
-
-    return sampled_graphs, losses
-    
-def train_wrapper_seq(rank, shared_results, *args):
-    sampled_graphs, losses = train_episode_seq(rank, *args)
-    print(f"Process {rank} finished training.")
-    shared_results.append((sampled_graphs, losses))
-
-def main(molecule):
-    num_processes = mp.cpu_count()  # Number of processes to spawn
-    t0 = time.time()   
-    mol, H, Hferm, n_paulis, Hq = molecule()
-    print("Number of Pauli products to measure: {}".format(n_paulis))
-    ############################
-    # Get FCI wfn for variance #
-    ############################
-
+    mol, H, _, n_paulis, Hq = molecule_fn()
     sparse_hamiltonian = get_sparse_operator(Hq)
     energy, fci_wfn = get_ground_state(sparse_hamiltonian)
     n_q = count_qubits(Hq)
-    print("Energy={}".format(energy))
-    print("Number of Qubits={}".format(n_q))
-    #Get list of Hamiltonian terms and generate complementary graph
-    binary_H = BinaryHamiltonian.init_from_qubit_hamiltonian(H)
-    terms=get_terms(binary_H)
-    CompMatrix=FC_CompMatrix(terms)
-    #CompMatrix=QWC_CompMatrix(terms)
-    Gc=obj_to_comp_graph(terms, CompMatrix)
-    n_terms=nx.number_of_nodes(Gc)
-    ###########################
-    # Parameters for GFlowNets#
-    ###########################
 
-    n_hid_units = 512
-    n_episodes = 1000 #num_processes*100
-    learning_rate = 1e-3
-    update_freq = 10
-    seed = 45
-    fig_name = "Test"
+    binary_h = BinaryHamiltonian.init_from_qubit_hamiltonian(H)
+    terms = get_terms(binary_h)
+    comp_matrix = FC_CompMatrix(terms)
+    graph = obj_to_comp_graph(terms, comp_matrix)
+    n_terms = graph.number_of_nodes()
 
-    print("For all experiments, our hyperparameters will be:")
-    print("    + n_hid_units={}".format(n_hid_units))
-    print("    + n_episodes={}".format(n_episodes))
-    print("    + learning_rate={}".format(learning_rate))
-    print("    + update_freq={}".format(update_freq))
-    print("Training in {} processors".format(num_processes))
-   # Use a Manager to create shared lists
-    with Manager() as manager:
-        shared_results = manager.list()
+    return {
+        "molecule": mol,
+        "graph": graph,
+        "n_terms": n_terms,
+        "fci_wfn": fci_wfn,
+        "n_q": n_q,
+        "energy": energy,
+        "n_paulis": n_paulis,
+    }
 
-        mp.spawn(
-            train_wrapper_seq, #train_wrapper or train_wrapper_seq
-            args=(shared_results, Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q),
-            nprocs=num_processes,
-            join=True,
+
+def _parse_args():
+    parser = argparse.ArgumentParser(
+        description=(
+            "Parallel single-model GFlowNet training with custom reward for "
+            "GIN/GAT/GraphTransformer, compatible with networkx/state_vector flows."
+        )
+    )
+    parser.add_argument("molecule", type=str, help="Molecule function name (e.g., H2, H4, LiH, BeH2, N2).")
+    parser.add_argument("--gpu", action="store_true", help="Use cuda:0 for model updates if available.")
+
+    parser.add_argument(
+        "--model",
+        choices=["gin", "gat", "transformer", "gin_lite", "gat_lite", "transformer_lite"],
+        default="gin_lite",
+    )
+    parser.add_argument("--representation", choices=["networkx", "state_vector"], default="state_vector")
+
+    parser.add_argument("--num-workers", type=int, default=4)
+    parser.add_argument("--num-updates", type=int, default=100)
+    parser.add_argument("--episodes-per-worker", type=int, default=4)
+
+    parser.add_argument("--n-hid-units", type=int, default=64)
+    parser.add_argument("--n-emb-dim", type=int, default=2)
+    parser.add_argument("--learning-rate", type=float, default=3e-4)
+    parser.add_argument(
+        "--replay-batch-size",
+        type=int,
+        default=64,
+        help="Mini-batch size for replay/update in state_vector mode (0 = full batch).",
+    )
+    parser.add_argument("--seed", type=int, default=45)
+
+    parser.add_argument("--l0", type=float, default=1000.0)
+    parser.add_argument("--l1", type=float, default=0.0)
+
+    parser.add_argument(
+        "--fig-name",
+        type=str,
+        default=None,
+        help="Output prefix. If omitted, uses the molecule name.",
+    )
+    parser.add_argument("--save-sampled", action="store_true", help="Save sampled graphs as pickle.")
+    parser.add_argument(
+        "--save-colorings",
+        action="store_true",
+        help="Save sampled colorings (state vectors) as pickle.",
+    )
+    parser.add_argument(
+        "--skip-analysis",
+        action="store_true",
+        help="Skip plotting and analysis helpers.",
+    )
+    return parser.parse_args()
+
+
+def main():
+    args = _parse_args()
+
+    device = torch.device("cuda:0" if args.gpu and torch.cuda.is_available() else "cpu")
+    set_training_device(device)
+
+    t0 = time.time()
+    problem = _build_problem(args.molecule)
+
+    expected_total = args.num_updates * args.num_workers * args.episodes_per_worker
+    fig_name = args.fig_name if args.fig_name else args.molecule
+
+    print("Training device={}".format(device))
+    print("Molecule={}".format(args.molecule))
+    print("Energy={}".format(problem["energy"]))
+    print("Number of Qubits={}".format(problem["n_q"]))
+    print("Number of Pauli products to measure={}".format(problem["n_paulis"]))
+    print("Number of terms in the Hamiltonian={}".format(problem["n_terms"]))
+
+    print("Parallel hyperparameters:")
+    print("    + model={}".format(args.model))
+    print("    + representation={}".format(args.representation))
+    print("    + n_hid_units={}".format(args.n_hid_units))
+    print("    + n_emb_dim={}".format(args.n_emb_dim))
+    print("    + learning_rate={}".format(args.learning_rate))
+    print("    + replay_batch_size={}".format(args.replay_batch_size))
+    print("    + seed={}".format(args.seed))
+    print("    + num_workers={}".format(args.num_workers))
+    print("    + num_updates={}".format(args.num_updates))
+    print("    + episodes_per_worker={}".format(args.episodes_per_worker))
+    print("    + l0={}".format(args.l0))
+    print("    + l1={}".format(args.l1))
+    print("Expected total sampled graphs={}".format(expected_total))
+    if args.num_workers > 1 and args.episodes_per_worker < 8:
+        print(
+            "Note: low episodes_per_worker increases model-sync overhead. "
+            "For same sample count, try fewer updates and larger episodes_per_worker."
         )
 
-        # Aggregate results from all processes
-        all_sampled_graphs = []
-        all_losses = []
-        for sampled_graphs, losses in shared_results:
-            all_sampled_graphs.extend(sampled_graphs)
-            all_losses.extend(losses)
+    result = run_parallel_graph_model_custom_reward_training(
+        graph=problem["graph"],
+        n_terms=problem["n_terms"],
+        n_hid_units=args.n_hid_units,
+        n_emb=args.n_emb_dim,
+        num_updates=args.num_updates,
+        episodes_per_worker=args.episodes_per_worker,
+        num_workers=args.num_workers,
+        learning_rate=args.learning_rate,
+        seed=args.seed,
+        wfn=problem["fci_wfn"],
+        n_q=problem["n_q"],
+        l0=args.l0,
+        l1=args.l1,
+        model_name=args.model,
+        representation=args.representation,
+        gpu=args.gpu,
+        fig_name=fig_name,
+        replay_batch_size=args.replay_batch_size,
+        show_progress=True,
+    )
+
     t1 = time.time()
-    print(f"Training time: {t1 - t0:.2f} seconds")
-    
-    print("Training completed successfully")
-    # Save all sampled graphs to a file
-    with open(fig_name + "_sampled_graphs.p", "wb") as f:
-        pickle.dump(all_sampled_graphs, f, pickle.HIGHEST_PROTOCOL)
+    print("Used multiprocessing={}".format(result.used_multiprocessing))
+    print("Actual total sampled graphs={}".format(result.actual_total_samples))
+    print("Expected total sampled graphs={}".format(result.expected_total_samples))
+    print("Training time: {:.2f} seconds".format(t1 - t0))
 
-    print(f"All sampled graphs saved to {fig_name}_sampled_graphs.p")
+    sampled_graphs = result.sampled_graphs
 
-    # Perform analysis similar to driver.py
-    check_sampled_graphs_fci_plot(fig_name, all_sampled_graphs, fci_wfn, n_q)
-    plot_loss_curve(fig_name, all_losses, title="Loss over Training Iterations")
-    histogram_all_fci(fig_name, all_sampled_graphs, fci_wfn, n_q)
+    if args.save_sampled:
+        sampled_graphs_file = fig_name + "_sampled_graphs.p"
+        with open(sampled_graphs_file, "wb") as f:
+            pickle.dump(sampled_graphs, f, pickle.HIGHEST_PROTOCOL)
+        print("Saved sampled graphs: {}".format(sampled_graphs_file))
 
-molecule = parser()
+    if args.save_colorings:
+        sampled_colorings_file = fig_name + "_sampled_colorings.p"
+        with open(sampled_colorings_file, "wb") as f:
+            pickle.dump(result.sampled_colorings, f, pickle.HIGHEST_PROTOCOL)
+        print("Saved sampled colorings: {}".format(sampled_colorings_file))
+
+    if not args.skip_analysis:
+        if len(sampled_graphs) < 16:
+            print(
+                "Skipping graph analysis plots because sampled_graphs has {} items (<16).".format(
+                    len(sampled_graphs)
+                )
+            )
+        else:
+            check_sampled_graphs_fci_plot(fig_name, sampled_graphs, problem["fci_wfn"], problem["n_q"])
+            plot_loss_curve(fig_name, result.losses, title="Loss over Parallel Training Updates")
+            histogram_all_fci(fig_name, sampled_graphs, problem["fci_wfn"], problem["n_q"])
+
+
 if __name__ == "__main__":
-    main(molecule)
+    main()
