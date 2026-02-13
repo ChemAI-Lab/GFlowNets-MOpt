@@ -7,7 +7,6 @@ from torch_geometric.data import Data
 from tqdm import trange
 
 from gflow_vqe.advanced_losses import (
-    combined_gafn_nabla_loss,
     gafn_joint_trajectory_loss,
     nabla_detailed_balance_loss,
 )
@@ -36,7 +35,6 @@ _CHECKPOINT_PREFIX = {
 _OBJECTIVE_SUFFIX = {
     "gafn": "GAFNmodel.pth",
     "nabla_db": "NablaDBmodel.pth",
-    "gafn_nabla": "GAFN_NablaDBmodel.pth",
 }
 
 
@@ -107,15 +105,12 @@ def run_graph_model_covariance_objective_training_state_vector(
     alpha_edge: float = 1.0,
     alpha_terminal: float = 1.0,
     beta_nabla: float = 1.0,
-    lambda_gafn: float = 1.0,
-    lambda_nabla: float = 1.0,
     show_progress: bool = True,
 ) -> Tuple[Sequence[torch.Tensor], Sequence[float]]:
     """
     State-vector training with covariance-based rewards and one of:
-      - objective='gafn'       (Generative Augmented Flow Networks)
-      - objective='nabla_db'   (gradient-informed detailed balance)
-      - objective='gafn_nabla' (combined objective)
+      - objective='gafn'      (Generative Augmented Flow Networks)
+      - objective='nabla_db'  (gradient-informed detailed balance)
     """
     model_name = model_name.lower()
     objective = objective.lower()
@@ -212,7 +207,7 @@ def run_graph_model_covariance_objective_training_state_vector(
 
             reward_next = reward_engine.reward(state_colors)
 
-            if objective in {"gafn", "gafn_nabla"}:
+            if objective == "gafn":
                 r_edge = reward_engine.edge_intermediate_reward(
                     reward_prev=reward_prev,
                     reward_next=reward_next,
@@ -223,7 +218,7 @@ def run_graph_model_covariance_objective_training_state_vector(
                 pb_plus_aug = torch.exp(log_p_b) + (r_edge / f_next)
                 log_augmented_backward_terms.append(torch.log(torch.clamp(pb_plus_aug, min=tiny)))
 
-            if objective in {"nabla_db", "gafn_nabla"}:
+            if objective == "nabla_db":
                 directional_gain = reward_engine.directional_log_reward_gain(
                     reward_prev=reward_prev,
                     reward_next=reward_next,
@@ -236,7 +231,7 @@ def run_graph_model_covariance_objective_training_state_vector(
 
         terminal_reward = reward_prev
 
-        if objective in {"gafn", "gafn_nabla"}:
+        if objective == "gafn":
             gafn_loss = gafn_joint_trajectory_loss(
                 log_z=model.logZ.squeeze(),
                 total_log_p_f=total_log_p_f,
@@ -248,7 +243,7 @@ def run_graph_model_covariance_objective_training_state_vector(
         else:
             gafn_loss = torch.zeros((), device=device)
 
-        if objective in {"nabla_db", "gafn_nabla"}:
+        if objective == "nabla_db":
             nabla_loss = nabla_detailed_balance_loss(
                 log_p_f_terms=log_p_f_terms,
                 log_p_b_terms=log_p_b_terms,
@@ -264,12 +259,7 @@ def run_graph_model_covariance_objective_training_state_vector(
         elif objective == "nabla_db":
             trajectory_loss = nabla_loss
         else:
-            trajectory_loss = combined_gafn_nabla_loss(
-                gafn_loss=gafn_loss,
-                nabla_loss=nabla_loss,
-                lambda_gafn=lambda_gafn,
-                lambda_nabla=lambda_nabla,
-            )
+            raise ValueError("Unsupported objective '{}'.".format(objective))
 
         minibatch_loss = minibatch_loss + trajectory_loss
         pending_episodes += 1
@@ -295,8 +285,6 @@ def run_graph_model_covariance_objective_training_state_vector(
                     "alpha_edge": alpha_edge,
                     "alpha_terminal": alpha_terminal,
                     "beta_nabla": beta_nabla,
-                    "lambda_gafn": lambda_gafn,
-                    "lambda_nabla": lambda_nabla,
                 },
                 fig_name + _checkpoint_suffix(model_name, objective),
             )
@@ -325,8 +313,6 @@ def _run_named_objective(
     alpha_edge: float = 1.0,
     alpha_terminal: float = 1.0,
     beta_nabla: float = 1.0,
-    lambda_gafn: float = 1.0,
-    lambda_nabla: float = 1.0,
     show_progress: bool = True,
 ):
     return run_graph_model_covariance_objective_training_state_vector(
@@ -349,8 +335,6 @@ def _run_named_objective(
         alpha_edge=alpha_edge,
         alpha_terminal=alpha_terminal,
         beta_nabla=beta_nabla,
-        lambda_gafn=lambda_gafn,
-        lambda_nabla=lambda_nabla,
         show_progress=show_progress,
     )
 
@@ -437,54 +421,6 @@ def coeff_GIN_nablaDB_training_cov_reward_state_vector(
     )
 
 
-def coeff_GIN_GAFN_nablaDB_training_cov_reward_state_vector(
-    graph: nx.Graph,
-    n_terms: int,
-    n_hid_units: int,
-    n_episodes: int,
-    learning_rate: float,
-    update_freq: int,
-    seed: int,
-    wfn,
-    n_q: int,
-    fig_name: str,
-    n_emb: int,
-    l0: float,
-    l1: float,
-    covariance_data: Optional[CovarianceRewardData] = None,
-    alpha_edge: float = 1.0,
-    alpha_terminal: float = 1.0,
-    beta_nabla: float = 1.0,
-    lambda_gafn: float = 1.0,
-    lambda_nabla: float = 1.0,
-    show_progress: bool = True,
-):
-    return _run_named_objective(
-        graph=graph,
-        n_terms=n_terms,
-        n_hid_units=n_hid_units,
-        n_episodes=n_episodes,
-        learning_rate=learning_rate,
-        update_freq=update_freq,
-        seed=seed,
-        wfn=wfn,
-        n_q=n_q,
-        fig_name=fig_name,
-        n_emb=n_emb,
-        l0=l0,
-        l1=l1,
-        model_name="gin",
-        objective="gafn_nabla",
-        covariance_data=covariance_data,
-        alpha_edge=alpha_edge,
-        alpha_terminal=alpha_terminal,
-        beta_nabla=beta_nabla,
-        lambda_gafn=lambda_gafn,
-        lambda_nabla=lambda_nabla,
-        show_progress=show_progress,
-    )
-
-
 def coeff_GAT_GAFN_training_cov_reward_state_vector(
     graph: nx.Graph,
     n_terms: int,
@@ -563,54 +499,6 @@ def coeff_GAT_nablaDB_training_cov_reward_state_vector(
         objective="nabla_db",
         covariance_data=covariance_data,
         beta_nabla=beta_nabla,
-        show_progress=show_progress,
-    )
-
-
-def coeff_GAT_GAFN_nablaDB_training_cov_reward_state_vector(
-    graph: nx.Graph,
-    n_terms: int,
-    n_hid_units: int,
-    n_episodes: int,
-    learning_rate: float,
-    update_freq: int,
-    seed: int,
-    wfn,
-    n_q: int,
-    fig_name: str,
-    n_emb: int,
-    l0: float,
-    l1: float,
-    covariance_data: Optional[CovarianceRewardData] = None,
-    alpha_edge: float = 1.0,
-    alpha_terminal: float = 1.0,
-    beta_nabla: float = 1.0,
-    lambda_gafn: float = 1.0,
-    lambda_nabla: float = 1.0,
-    show_progress: bool = True,
-):
-    return _run_named_objective(
-        graph=graph,
-        n_terms=n_terms,
-        n_hid_units=n_hid_units,
-        n_episodes=n_episodes,
-        learning_rate=learning_rate,
-        update_freq=update_freq,
-        seed=seed,
-        wfn=wfn,
-        n_q=n_q,
-        fig_name=fig_name,
-        n_emb=n_emb,
-        l0=l0,
-        l1=l1,
-        model_name="gat",
-        objective="gafn_nabla",
-        covariance_data=covariance_data,
-        alpha_edge=alpha_edge,
-        alpha_terminal=alpha_terminal,
-        beta_nabla=beta_nabla,
-        lambda_gafn=lambda_gafn,
-        lambda_nabla=lambda_nabla,
         show_progress=show_progress,
     )
 
@@ -696,50 +584,3 @@ def coeff_Transformer_nablaDB_training_cov_reward_state_vector(
         show_progress=show_progress,
     )
 
-
-def coeff_Transformer_GAFN_nablaDB_training_cov_reward_state_vector(
-    graph: nx.Graph,
-    n_terms: int,
-    n_hid_units: int,
-    n_episodes: int,
-    learning_rate: float,
-    update_freq: int,
-    seed: int,
-    wfn,
-    n_q: int,
-    fig_name: str,
-    n_emb: int,
-    l0: float,
-    l1: float,
-    covariance_data: Optional[CovarianceRewardData] = None,
-    alpha_edge: float = 1.0,
-    alpha_terminal: float = 1.0,
-    beta_nabla: float = 1.0,
-    lambda_gafn: float = 1.0,
-    lambda_nabla: float = 1.0,
-    show_progress: bool = True,
-):
-    return _run_named_objective(
-        graph=graph,
-        n_terms=n_terms,
-        n_hid_units=n_hid_units,
-        n_episodes=n_episodes,
-        learning_rate=learning_rate,
-        update_freq=update_freq,
-        seed=seed,
-        wfn=wfn,
-        n_q=n_q,
-        fig_name=fig_name,
-        n_emb=n_emb,
-        l0=l0,
-        l1=l1,
-        model_name="transformer",
-        objective="gafn_nabla",
-        covariance_data=covariance_data,
-        alpha_edge=alpha_edge,
-        alpha_terminal=alpha_terminal,
-        beta_nabla=beta_nabla,
-        lambda_gafn=lambda_gafn,
-        lambda_nabla=lambda_nabla,
-        show_progress=show_progress,
-    )

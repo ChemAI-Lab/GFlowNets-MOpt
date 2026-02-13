@@ -27,7 +27,6 @@ Reward functions can be
 New objectives based on covariance rewards are available in `gflow_vqe/advanced_training.py`:
 - `coeff_GIN_GAFN_training_cov_reward_state_vector` (intermediate-reward GAFN)
 - `coeff_GIN_nablaDB_training_cov_reward_state_vector` (gradient-informed detailed balance)
-- `coeff_GIN_GAFN_nablaDB_training_cov_reward_state_vector` (combined objective)
 
 They can either build the covariance dictionary from `(graph, wfn, n_q)` or take a precomputed `CovarianceRewardData`.
 

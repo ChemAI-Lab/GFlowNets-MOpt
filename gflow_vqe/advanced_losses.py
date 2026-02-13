@@ -60,13 +60,3 @@ def nabla_detailed_balance_loss(
     if reduction == "mean":
         return stacked.mean()
     raise ValueError("Unsupported reduction '{}'. Use 'mean' or 'sum'.".format(reduction))
-
-
-def combined_gafn_nabla_loss(
-    gafn_loss: torch.Tensor,
-    nabla_loss: torch.Tensor,
-    lambda_gafn: float = 1.0,
-    lambda_nabla: float = 1.0,
-) -> torch.Tensor:
-    return float(lambda_gafn) * gafn_loss + float(lambda_nabla) * nabla_loss
-

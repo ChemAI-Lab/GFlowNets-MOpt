@@ -44,10 +44,17 @@ MOLECULES = {
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Development driver for covariance-based GFlowNets (GAFN, nabla-DB, and combined)."
+        description=(
+            "Development driver for covariance-based GFlowNets "
+            "(GAFN and nabla-DB)."
+        )
     )
     parser.add_argument("molecule", choices=sorted(MOLECULES.keys()))
-    parser.add_argument("--objective", choices=["gafn", "nabla_db", "gafn_nabla", "all"], default="all")
+    parser.add_argument(
+        "--objective",
+        choices=["gafn", "nabla_db", "all"],
+        default="all",
+    )
     parser.add_argument("--model", choices=["gin", "gat", "transformer"], default="gin")
     parser.add_argument("--gpu", action="store_true", help="Use cuda:0 when available.")
     parser.add_argument("--episodes", type=int, default=1000)
@@ -61,8 +68,6 @@ def parse_args():
     parser.add_argument("--alpha-edge", type=float, default=1.0)
     parser.add_argument("--alpha-terminal", type=float, default=1.0)
     parser.add_argument("--beta-nabla", type=float, default=1.0)
-    parser.add_argument("--lambda-gafn", type=float, default=1.0)
-    parser.add_argument("--lambda-nabla", type=float, default=1.0)
     parser.add_argument("--prefix", type=str, default="", help="Output prefix. Defaults to molecule name.")
     parser.add_argument("--plot", action="store_true", help="Generate loss and histogram plots per run.")
     parser.add_argument("--no-progress", action="store_true", help="Disable tqdm progress bars.")
@@ -145,7 +150,11 @@ def main():
     n_terms = nx.number_of_nodes(Gc)
     print("Number of terms in the Hamiltonian: {}".format(n_terms))
 
-    objectives = ["gafn", "nabla_db", "gafn_nabla"] if args.objective == "all" else [args.objective]
+    objectives = (
+        ["gafn", "nabla_db"]
+        if args.objective == "all"
+        else [args.objective]
+    )
     fig_prefix = args.prefix if args.prefix else args.molecule
 
     print("For all experiments, hyperparameters are:")
@@ -160,7 +169,6 @@ def main():
     print("    + l0={}, l1={}".format(args.l0, args.l1))
     print("    + alpha_edge={}, alpha_terminal={}".format(args.alpha_edge, args.alpha_terminal))
     print("    + beta_nabla={}".format(args.beta_nabla))
-    print("    + lambda_gafn={}, lambda_nabla={}".format(args.lambda_gafn, args.lambda_nabla))
 
     cov_t0 = time.time()
     covariance_data = build_covariance_reward_data(Gc, fci_wfn, n_q)
@@ -192,8 +200,6 @@ def main():
             alpha_edge=args.alpha_edge,
             alpha_terminal=args.alpha_terminal,
             beta_nabla=args.beta_nabla,
-            lambda_gafn=args.lambda_gafn,
-            lambda_nabla=args.lambda_nabla,
             show_progress=not args.no_progress,
         )
         train_time_s = time.time() - train_t0
