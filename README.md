@@ -21,6 +21,15 @@ Reward functions can be
 - ***meas_reward*** which uses exact variances to get the measurement number and $\lambda_0=1$, $\lambda_1=1$ in the reward.
 - ***my_reward*** which uses exact variances to get the measurement number and a $\lambda_0=10^3$ value
 - ***custom_reward*** which uses exact variances to get the measurement number, and the user can pass the $\lambda_0$ and $\lambda_1$ values.
+- ***covariance-based reward*** which precomputes a dictionary `Cov(P_j,P_k)` and evaluates grouped variances as
+  `Var(H_alpha)=sum_{j,k in alpha} c_j c_k Cov(P_j,P_k)` (see `gflow_vqe/covariance_rewards.py`).
+
+New objectives based on covariance rewards are available in `gflow_vqe/advanced_training.py`:
+- `coeff_GIN_GAFN_training_cov_reward_state_vector` (intermediate-reward GAFN)
+- `coeff_GIN_nablaDB_training_cov_reward_state_vector` (gradient-informed detailed balance)
+- `coeff_GIN_GAFN_nablaDB_training_cov_reward_state_vector` (combined objective)
+
+They can either build the covariance dictionary from `(graph, wfn, n_q)` or take a precomputed `CovarianceRewardData`.
 
 Verify before running the reward function employed by the training protocol. The training functions are inside gflow_vqe/training.py. The list is available in the driver.py file with a small description of the models employed for each of them and the loss function implemented.
 
