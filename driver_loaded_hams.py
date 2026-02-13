@@ -39,6 +39,7 @@ n_episodes = 1000
 learning_rate = 3e-4
 update_freq = 10
 seed = 45
+n_emb_dim = 16  # Dimension of the embedding layer.
 fig_name = "lih_loaded_fc" 
 #All loaded Hamiltonians use BK transform.
 
@@ -47,6 +48,11 @@ print("    + n_hid_units={}".format(n_hid_units))
 print("    + n_episodes={}".format(n_episodes))
 print("    + learning_rate={}".format(learning_rate))
 print("    + update_freq={}".format(update_freq))
+print("    + n_emb_dim={}".format(n_emb_dim))
+
+#For custom reward, comment otherwise.
+l0 = 0 #\Lambda_0 parameter for Measurement reward
+l1 = 1 #\Lambda_1 parameter for Color reward
 
 
 ##################################
@@ -59,6 +65,9 @@ print("    + update_freq={}".format(update_freq))
 #sampled_graphs, losses = colored_initial_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name)
 #sampled_graphs, losses = precolored_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name)
 sampled_graphs, losses = pure_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name)
+#sampled_graphs, losses = coeff_GIN_TB_training_custom_reward(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, l0, l1)
+#sampled_graphs, losses = coeff_GAT_TB_training_custom_reward(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, l0, l1)
+#sampled_graphs, losses = coeff_Transformer_TB_training_custom_reward(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, l0, l1)
 
 ##################################
 # Save graphs to file!! ##########

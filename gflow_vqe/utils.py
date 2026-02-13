@@ -293,7 +293,7 @@ def graph_parents_precolored(state):
     return parent_states, parent_actions
 
 def get_groups_measurement(graph, wfn, n_qubit, tiny = 1e-10):
-    """Returns the /epsilon^2 M = [/sum_i\sqrt(Var G_i)]^2for the calculation with a given WFN. This version admits the FCI wfn only."""
+    r"""Returns the /epsilon^2 M = [/sum_i\sqrt(Var G_i)]^2for the calculation with a given WFN. This version admits the FCI wfn only."""
     h_color=extract_hamiltonian_by_color(graph)
     groups = generate_groups(h_color)
     sqrt_var=0
@@ -312,7 +312,7 @@ def get_groups_measurement(graph, wfn, n_qubit, tiny = 1e-10):
     return eps_sq_M
 
 def meas_reward(graph, wfn, n_qubit):
-    """Reward is based on the number of colors we have. The lower cliques the better.
+    r"""Reward is based on the number of colors we have. The lower cliques the better.
     Invalid configs give 0. Additionally, employs 1/eps^2M where M is the number of Measurements
     to achieve accuracy \eps as reward function. The lower number of shots, the better."""
     if is_not_valid(graph):
@@ -333,7 +333,7 @@ def trajectory_balance_loss_seq(logZ, log_P_F, reward):
     return (logZ + log_P_F - torch.log(torch.clamp(reward, min=1e-30))).pow(2)
 
 def my_reward(graph, wfn, n_qubit):
-    """Reward for testing hyperparameters.
+    r"""Reward for testing hyperparameters.
     Invalid configs give 0. Additionally, employs 1/eps^2M where M is the number of Measurements
     to achieve accuracy \eps as reward function. The lower number of shots, the better."""
     if is_not_valid(graph):
@@ -344,7 +344,7 @@ def my_reward(graph, wfn, n_qubit):
     return reward
 
 def custom_reward(graph, wfn, n_qubit,l0,l1):
-    """Reward is based on the number of colors we have. The lower cliques the better.
+    r"""Reward is based on the number of colors we have. The lower cliques the better.
     Invalid configs give 0. Additionally, employs 1/eps^2M where M is the number of Measurements
     to achieve accuracy \eps as reward function. The lower number of shots, the better."""
     if is_not_valid(graph):

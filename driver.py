@@ -78,6 +78,8 @@ print("    + l1={}".format(l1))
 #sampled_graphs, losses = GINcpu_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim)
 #sampled_graphs, losses = coeff_GIN_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim)
 sampled_graphs, losses = coeff_GIN_TB_training_custom_reward(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, l0, l1)
+#sampled_graphs, losses = coeff_GAT_TB_training_custom_reward(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, l0, l1)
+#sampled_graphs, losses = coeff_Transformer_TB_training_custom_reward(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, l0, l1)
 #sampled_graphs, losses = coeff_GIN_TB_training_wbound(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, bound)
 #sampled_graphs, losses = GINcpu_TB_training_wbound(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, bound)
 #Random samplers

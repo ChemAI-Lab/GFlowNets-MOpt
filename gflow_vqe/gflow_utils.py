@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch_geometric.nn import GINConv, GINEConv
+from torch_geometric.nn import GINConv, GINEConv, GATConv, TransformerConv
 from torch_geometric.nn import global_mean_pool, global_add_pool
 from torch_geometric.data import Data
 from networkx import Graph
@@ -261,6 +261,88 @@ class GIN_terms(torch.nn.Module):
         logits_f = self.lin_logitz_f(h)
         logits_b = self.lin_logitz_b(h)
         return  logits_f, logits_b
+
+class GAT_terms(torch.nn.Module):
+    """GAT with terms of the Hamiltonian"""
+    def __init__(self, dim_h, n_terms, num_emb_dim, n_heads=4):
+        super(GAT_terms, self).__init__()
+        self.n_terms = n_terms  # number of colors
+        self.num_emb_dim = num_emb_dim  # embeding dimension for colors
+
+        self.emb_layer = nn.Embedding(n_terms, embedding_dim=self.num_emb_dim)
+
+        self.conv1 = GATConv(self.num_emb_dim + 1, dim_h, heads=n_heads, concat=False, edge_dim=1)
+        self.conv2 = GATConv(dim_h, dim_h, heads=n_heads, concat=False, edge_dim=1)
+
+        self.logZ = nn.Parameter(torch.ones(1))  # log Z is just a single number
+
+        # prediction of forward and backward probablity
+        self.lin_logitz_f = nn.Sequential(nn.Linear(dim_h * 2, dim_h), nn.ReLU(), nn.Linear(dim_h, self.n_terms))
+        self.lin_logitz_b = nn.Sequential(nn.Linear(dim_h * 2, dim_h), nn.ReLU(), nn.Linear(dim_h, self.n_terms))
+
+    def forward(self, x, y, edge_index, edge_attr, batch):
+        # Node embeddings
+        x = self.emb_layer(x)
+        x = x.squeeze(1)
+        y = y.unsqueeze(1)
+        xy = torch.cat((x, y), dim=1)
+        edge_attr = edge_attr.float()
+
+        h1 = self.conv1(xy, edge_index, edge_attr)
+        h2 = self.conv2(h1, edge_index, edge_attr)
+
+        # Graph-level readout
+        h1 = global_add_pool(h1, batch)
+        h2 = global_add_pool(h2, batch)
+
+        # Concatenate graph embeddings
+        h = torch.cat((h1, h2), dim=1)
+
+        # Classifier
+        logits_f = self.lin_logitz_f(h)
+        logits_b = self.lin_logitz_b(h)
+        return logits_f, logits_b
+
+class GraphTransformer_terms(torch.nn.Module):
+    """Graph Transformer with terms of the Hamiltonian"""
+    def __init__(self, dim_h, n_terms, num_emb_dim, n_heads=4):
+        super(GraphTransformer_terms, self).__init__()
+        self.n_terms = n_terms  # number of colors
+        self.num_emb_dim = num_emb_dim  # embeding dimension for colors
+
+        self.emb_layer = nn.Embedding(n_terms, embedding_dim=self.num_emb_dim)
+
+        self.conv1 = TransformerConv(self.num_emb_dim + 1, dim_h, heads=n_heads, concat=False, edge_dim=1)
+        self.conv2 = TransformerConv(dim_h, dim_h, heads=n_heads, concat=False, edge_dim=1)
+
+        self.logZ = nn.Parameter(torch.ones(1))  # log Z is just a single number
+
+        # prediction of forward and backward probablity
+        self.lin_logitz_f = nn.Sequential(nn.Linear(dim_h * 2, dim_h), nn.ReLU(), nn.Linear(dim_h, self.n_terms))
+        self.lin_logitz_b = nn.Sequential(nn.Linear(dim_h * 2, dim_h), nn.ReLU(), nn.Linear(dim_h, self.n_terms))
+
+    def forward(self, x, y, edge_index, edge_attr, batch):
+        # Node embeddings
+        x = self.emb_layer(x)
+        x = x.squeeze(1)
+        y = y.unsqueeze(1)
+        xy = torch.cat((x, y), dim=1)
+        edge_attr = edge_attr.float()
+
+        h1 = self.conv1(xy, edge_index, edge_attr)
+        h2 = self.conv2(h1, edge_index, edge_attr)
+
+        # Graph-level readout
+        h1 = global_add_pool(h1, batch)
+        h2 = global_add_pool(h2, batch)
+
+        # Concatenate graph embeddings
+        h = torch.cat((h1, h2), dim=1)
+
+        # Classifier
+        logits_f = self.lin_logitz_f(h)
+        logits_b = self.lin_logitz_b(h)
+        return logits_f, logits_b
 
 def calculate_forward_mask_from_state(state, t, lower_bound):
     """We want to mask the sampling to avoid any potential loss of time while training.
