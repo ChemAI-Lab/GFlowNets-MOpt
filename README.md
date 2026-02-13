@@ -10,7 +10,7 @@ pip install -e .
 
 Before you run make sure to have the proper packages installed in requirements.txt 
 or
-For most users, installing: matplotlib, seaborn, pennylane, openfermion, tequila-basic, pyscf, torch, and torch_geometric would be enough.
+For most users, installing: pyscf openfermion matplotlib seaborn pennylane tequila-basic==1.9.9 torch torch_geometric would be enough. We require Setuptools<81
 
 ![GFlowNet sampling protocol](GFlow.png)
 
