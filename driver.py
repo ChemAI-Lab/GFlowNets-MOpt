@@ -3,9 +3,14 @@ from gflow_vqe.hamiltonians import *
 from gflow_vqe.gflow_utils import *
 from gflow_vqe.result_analysis import *
 from gflow_vqe.training import *
+import torch
 import time
 
-#device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+# Set GPU=True to use cuda:0 when available. If absent/False, CPU is used.
+GPU = globals().get("GPU", False)
+device = torch.device("cuda:0" if GPU and torch.cuda.is_available() else "cpu")
+set_training_device(device)
+print("Training device={}".format(device))
 ########################
 #Hamiltonian definition#
 # and initialization   #
@@ -35,12 +40,12 @@ print("Number of terms in the Hamiltonian: {}".format(n_terms))
 # Parameters for GFlowNets#
 ###########################
 
-n_hid_units = 512
+n_hid_units = 64
 n_episodes = 1000
 learning_rate = 3e-4
 update_freq = 10
 seed = 45
-n_emb_dim = 16  # Dimension of the embedding layer.
+n_emb_dim = 2  # Dimension of the embedding layer.
 device_ids=[0, 1] #Number of GPUs to use, if available. If you have only one GPU, set this to [0]. If you have two GPUs, set this to [0, 1].
 fig_name = "H2"
 color_map = nx.coloring.greedy_color(Gc, strategy="random_sequential")
@@ -75,13 +80,17 @@ print("    + l1={}".format(l1))
 #Trajectory balance/GINE based models
 #sampled_graphs, losses = GIN_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim)
 #sampled_graphs, losses = GIN_2GPU_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim,device_ids)
-#sampled_graphs, losses = GINcpu_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim)
 #sampled_graphs, losses = coeff_GIN_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim)
 sampled_graphs, losses = coeff_GIN_TB_training_custom_reward(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, l0, l1)
 #sampled_graphs, losses = coeff_GAT_TB_training_custom_reward(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, l0, l1)
 #sampled_graphs, losses = coeff_Transformer_TB_training_custom_reward(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, l0, l1)
 #sampled_graphs, losses = coeff_GIN_TB_training_wbound(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, bound)
 #sampled_graphs, losses = GINcpu_TB_training_wbound(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, bound)
+#Functions using state vector instead of networkx objects. They are roughly twice as fast.
+#sampled_colorings, losses = coeff_GIN_TB_training_custom_reward_state_vector(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, l0, l1)
+#sampled_colorings, losses = coeff_GAT_TB_training_custom_reward_state_vector(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, l0, l1)
+#sampled_colorings, losses = coeff_Transformer_TB_training_custom_reward_state_vector(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, l0, l1)
+#sampled_graphs = state_vector_colorings_to_graphs(Gc, sampled_colorings)
 #Random samplers
 #sampled_graphs, losses = random_sampler(Gc, n_terms, n_hid_units, n_episodes, seed)
 #sampled_graphs, losses = random_sampler_masked(Gc, n_terms, n_hid_units, n_episodes, seed)

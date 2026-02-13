@@ -347,10 +347,17 @@ def custom_reward(graph, wfn, n_qubit,l0,l1):
     r"""Reward is based on the number of colors we have. The lower cliques the better.
     Invalid configs give 0. Additionally, employs 1/eps^2M where M is the number of Measurements
     to achieve accuracy \eps as reward function. The lower number of shots, the better."""
+    if l0 == 0 and l1 == 0:
+        return 0
+
     if is_not_valid(graph):
         return 0
-    else:
-        reward= l0/get_groups_measurement(graph, wfn, n_qubit) + l1*color_reward(graph)
+
+    reward = 0
+    if l0 != 0:
+        reward += l0 / get_groups_measurement(graph, wfn, n_qubit)
+    if l1 != 0:
+        reward += l1 * color_reward(graph)
 
     return reward
 

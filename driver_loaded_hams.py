@@ -3,6 +3,13 @@ from gflow_vqe.hamiltonians import *
 from gflow_vqe.gflow_utils import *
 from gflow_vqe.result_analysis import *
 from gflow_vqe.training import *
+import torch
+
+# Set GPU=True to use cuda:0 when available. If absent/False, CPU is used.
+GPU = globals().get("GPU", False)
+device = torch.device("cuda:0" if GPU and torch.cuda.is_available() else "cpu")
+set_training_device(device)
+print("Training device={}".format(device))
 
 ########################
 #Hamiltonian definition#
@@ -68,6 +75,11 @@ sampled_graphs, losses = pure_TB_training(Gc, n_terms, n_hid_units, n_episodes, 
 #sampled_graphs, losses = coeff_GIN_TB_training_custom_reward(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, l0, l1)
 #sampled_graphs, losses = coeff_GAT_TB_training_custom_reward(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, l0, l1)
 #sampled_graphs, losses = coeff_Transformer_TB_training_custom_reward(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, l0, l1)
+#Functions using state vector instead of networkx objects. They are roughly twice as fast.
+#sampled_colorings, losses = coeff_GIN_TB_training_custom_reward_state_vector(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, l0, l1)
+#sampled_colorings, losses = coeff_GAT_TB_training_custom_reward_state_vector(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, l0, l1)
+#sampled_colorings, losses = coeff_Transformer_TB_training_custom_reward_state_vector(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, fci_wfn, n_q, fig_name, n_emb_dim, l0, l1)
+#sampled_graphs = state_vector_colorings_to_graphs(Gc, sampled_colorings)
 
 ##################################
 # Save graphs to file!! ##########
