@@ -1,7 +1,25 @@
 from tqdm import tqdm, trange
+import torch
 from torch.distributions.categorical import Categorical
 from gflow_vqe.utils import *
 from gflow_vqe.gflow_utils import *
+
+TRAINING_DEVICE = torch.device("cpu")
+
+
+def set_training_device(device=None):
+    """Set the default device used by training functions."""
+    global TRAINING_DEVICE
+    if device is None:
+        TRAINING_DEVICE = torch.device("cpu")
+    else:
+        TRAINING_DEVICE = torch.device(device)
+    return TRAINING_DEVICE
+
+
+def get_training_device():
+    """Get the configured default training device."""
+    return TRAINING_DEVICE
 
 def precolored_flow_match_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q, fig_name):
     
@@ -662,7 +680,7 @@ def emb_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, upda
     return sampled_graphs, losses
 
 def GIN_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q, fig_name, n_emb):
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = get_training_device()
 
     set_seed(seed)
 
@@ -840,98 +858,6 @@ def GIN_2GPU_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate,
 
     return sampled_graphs, losses
 
-def GINcpu_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q, fig_name, n_emb):
-    device = torch.device("cpu")
-
-    set_seed(seed)
-
-    # Instantiate model and optimizer
-    model = GIN(n_hid_units, n_terms, n_emb).to(device)
-    opt = torch.optim.Adam(model.parameters(),  learning_rate)
-    # Attributes and batch for GNN
-    edge_index = generate_edge_index(graph).to(device)
-    # let's try to see if we can "negativly" affect nodes that are connected
-    edge_attr = -1. * torch.ones((edge_index.shape[1],1),dtype=torch.long, device=device)
-    # Accumulate losses here and take a
-    # gradient step every `update_freq` episode (at the end of each trajectory).
-    losses, sampled_graphs, logZs = [], [], []
-    minibatch_loss = 0
-    # Determine upper limit
-    color_map = nx.coloring.greedy_color(graph, strategy="random_sequential")
-    bound=max(color_map.values())+2
-
-    tbar = trange(n_episodes, desc="Training iter")
-    for episode in tbar:
-        state = graph  # Each episode starts with the initially colored graph
-        x = graph_to_tensor(state).unsqueeze(1).long().to(device)
-        data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
-        #data = Data(x=graph_to_tensor(state).unsqueeze(1).long(), edge_index=edge_index, edge_attr=edge_attr)
-        P_F_s, P_B_s = model(data.x, data.edge_index, data.edge_attr, data.batch)
-        #P_F_s, P_B_s = model(graph_to_tensor(state).unsqueeze(1).long(),n_terms, edge_attr, batch=1)  # Forward and backward policy
-        total_log_P_F, total_log_P_B = 0, 0
-
-        for t in range(nx.number_of_nodes(state)):  # All trajectories as length the number of nodes
-
-            #Mask calculator
-            new_state = state.copy()
-            mask = calculate_forward_mask_from_state(new_state, t, bound).to(device)
-            P_F_s = torch.where(mask, P_F_s, -100)  # Removes invalid forward actions.
-            # Sample the action and compute the new state.
-            # Here P_F is logits, so we use Categorical to compute a softmax.
-            categorical = Categorical(logits=P_F_s)
-            action = categorical.sample()
-            #print('Action {}'.format(action))
-            new_state.nodes[t]['color'] = action.item()
-            total_log_P_F += categorical.log_prob(action)  # Accumulate the log_P_F sum.
-
-            #If a trajectory is complete. in TB we don't need to calculate parents.
-            if t == nx.number_of_nodes(state)-1:  # End of trajectory.
-            # We calculate the reward
-                reward = my_reward(new_state,wfn,n_q)
-                #reward = vqe_reward(new_state)
-
-            # We recompute P_F and P_B for new_state.
-            x = graph_to_tensor(new_state).unsqueeze(1).long().to(device)
-            data = Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
-            P_F_s, P_B_s = model(data.x, data.edge_index, data.edge_attr, data.batch)
-            #P_F_s, P_B_s = model(graph_to_tensor(new_state).unsqueeze(1).long(),n_terms, edge_attr, batch=1)
-            mask = calculate_backward_mask_from_state(new_state, t, bound).to(device)
-            P_B_s = torch.where(mask, P_B_s, -100)  # Removes invalid backward actions.
-
-            # Accumulate P_B, going backwards from `new_state`.
-            total_log_P_B += Categorical(logits=P_B_s).log_prob(action)
-
-            state = new_state  # Continue iterating.
-
-        # We're done with the trajectory, let's compute its loss. Since the reward
-        # can sometimes be zero, instead of log(0) we'll clip the log-reward to -20.
-        minibatch_loss += trajectory_balance_loss(
-            model.logZ,
-            total_log_P_F,
-            total_log_P_B,
-            reward,
-        )
-    # We're done with the episode, add the graph to the list, and if we are at an
-    # update episode, take a gradient step.
-        sampled_graphs.append(state)
-        if episode % update_freq == 0:
-            losses.append(minibatch_loss.item())
-            logZs.append(model.logZ.item())
-            minibatch_loss.backward()
-            opt.step()
-            opt.zero_grad()
-            minibatch_loss = 0
-            torch.save({
-                'epoch': episode,
-                'model_state_dict': model.cpu().state_dict(),  # move to CPU before saving
-                'optimizer_state_dict': opt.state_dict(),
-                'loss': losses,
-                }, fig_name + "_ginTBmodel.pth")
-            model.to(device)  # Move it back if training will continue
-
-    return sampled_graphs, losses
-
-
 def random_sampler_masked(graph, n_terms, n_hid_units, n_episodes, seed):
     set_seed(seed)
     
@@ -999,7 +925,7 @@ def random_sampler(graph, n_terms, n_hid_units, n_episodes, seed):
     return sampled_graphs, losses
 
 def coeff_GIN_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q, fig_name, n_emb):
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = get_training_device()
 
     set_seed(seed)
 
@@ -1091,7 +1017,7 @@ def coeff_GIN_TB_training(graph, n_terms, n_hid_units, n_episodes, learning_rate
     return sampled_graphs, losses
 
 def GINcpu_TB_training_wbound(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q, fig_name, n_emb, bound):
-    device = torch.device("cpu")
+    device = get_training_device()
 
     set_seed(seed)
 
@@ -1182,7 +1108,7 @@ def GINcpu_TB_training_wbound(graph, n_terms, n_hid_units, n_episodes, learning_
     return sampled_graphs, losses
 
 def coeff_GIN_TB_training_wbound(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q, fig_name, n_emb, bound):
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = get_training_device()
 
     set_seed(seed)
 
@@ -1274,11 +1200,10 @@ def coeff_GIN_TB_training_wbound(graph, n_terms, n_hid_units, n_episodes, learni
     return sampled_graphs, losses
 
 def coeff_GIN_TB_training_custom_reward(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q, fig_name, n_emb, l0, l1):
-    """
+    r"""
     Custom training loop for GIN with a specific reward function. We pass the \lambda_0 and \lambda_1 parameters.
     """
-    #device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    device = torch.device("cpu")
+    device = get_training_device()
 
     set_seed(seed)
 
@@ -1369,10 +1294,10 @@ def coeff_GIN_TB_training_custom_reward(graph, n_terms, n_hid_units, n_episodes,
     return sampled_graphs, losses
 
 def coeff_GAT_TB_training_custom_reward(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q, fig_name, n_emb, l0, l1):
-    """
+    r"""
     Custom training loop for GAT with a specific reward function. We pass the \lambda_0 and \lambda_1 parameters.
     """
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = get_training_device()
 
     set_seed(seed)
 
@@ -1463,10 +1388,10 @@ def coeff_GAT_TB_training_custom_reward(graph, n_terms, n_hid_units, n_episodes,
     return sampled_graphs, losses
 
 def coeff_Transformer_TB_training_custom_reward(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q, fig_name, n_emb, l0, l1):
-    """
+    r"""
     Custom training loop for a Graph Transformer with a specific reward function. We pass the \lambda_0 and \lambda_1 parameters.
     """
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = get_training_device()
 
     set_seed(seed)
 
@@ -1555,3 +1480,256 @@ def coeff_Transformer_TB_training_custom_reward(graph, n_terms, n_hid_units, n_e
             model.to(device)  # Move it back if training will continue
 
     return sampled_graphs, losses
+
+
+def _forward_mask_from_color_tensor(colors, neighbor_idx, lower_bound, n_terms):
+    """Mask invalid forward actions from a tensorized coloring."""
+    mask = torch.ones(n_terms, dtype=torch.bool, device=colors.device)
+    if lower_bound + 1 < n_terms:
+        mask[lower_bound + 1 :] = False
+    if neighbor_idx.numel() > 0:
+        neighbor_colors = colors[neighbor_idx].long()
+        mask[neighbor_colors] = False
+    return mask
+
+
+def _backward_mask_from_color_tensor(colors, neighbor_idx, lower_bound, n_terms):
+    """Mask invalid backward actions from a tensorized coloring."""
+    mask = torch.ones(n_terms, dtype=torch.bool, device=colors.device)
+    if lower_bound + 1 < n_terms:
+        mask[lower_bound + 1 :] = False
+    if neighbor_idx.numel() > 0:
+        neighbor_colors = colors[neighbor_idx].long()
+        mask[neighbor_colors] = True
+    return mask
+
+
+def _set_graph_colors_from_tensor(graph, colors):
+    """Write a color tensor into the graph node attributes."""
+    for i in range(colors.numel()):
+        graph.nodes[i]["color"] = int(colors[i].item())
+
+
+def state_vector_colorings_to_graphs(base_graph, sampled_colorings):
+    """Convert sampled color tensors back into networkx graphs."""
+    sampled_graphs = []
+    for colors in sampled_colorings:
+        g = base_graph.copy()
+        _set_graph_colors_from_tensor(g, colors)
+        sampled_graphs.append(g)
+    return sampled_graphs
+
+
+def _coeff_graph_model_TB_training_custom_reward_state_vector(
+    graph,
+    n_terms,
+    n_hid_units,
+    n_episodes,
+    learning_rate,
+    update_freq,
+    seed,
+    wfn,
+    n_q,
+    fig_name,
+    n_emb,
+    l0,
+    l1,
+    model_cls,
+    model_suffix,
+    device,
+):
+    """Shared state-vector TB loop for GIN/GAT/GraphTransformer models."""
+    set_seed(seed)
+
+    model = model_cls(n_hid_units, n_terms, n_emb).to(device)
+    opt = torch.optim.Adam(model.parameters(), learning_rate)
+
+    edge_index = generate_edge_index(graph).to(device)
+    edge_attr = -1.0 * torch.ones((edge_index.shape[1], 1), dtype=torch.long, device=device)
+    y = torch.tensor(
+        [graph.nodes[i]["v"].coeff for i in range(nx.number_of_nodes(graph))],
+        dtype=torch.float,
+        device=device,
+    )
+
+    n_nodes = nx.number_of_nodes(graph)
+    neighbor_idx = [
+        torch.tensor(list(graph.neighbors(i)), dtype=torch.long, device=device)
+        for i in range(n_nodes)
+    ]
+
+    color_map = nx.coloring.greedy_color(graph, strategy="random_sequential")
+    bound = max(color_map.values()) + 2
+
+    losses, sampled_colorings = [], []
+    minibatch_loss = 0
+
+    reward_graph = graph.copy()
+    base_state = graph_to_tensor(graph).long().to(device)
+
+    tbar = trange(n_episodes, desc="Training iter (state-vector)")
+    for episode in tbar:
+        state_colors = base_state.clone()
+        x = state_colors.clone().unsqueeze(1)
+        data = Data(x=x, y=y, edge_index=edge_index, edge_attr=edge_attr)
+        P_F_s, P_B_s = model(data.x, data.y, data.edge_index, data.edge_attr, data.batch)
+        total_log_P_F, total_log_P_B = 0, 0
+
+        for t in range(n_nodes):
+            mask_f = _forward_mask_from_color_tensor(state_colors, neighbor_idx[t], bound, n_terms)
+            P_F_s = torch.where(mask_f, P_F_s, -100)
+            categorical = Categorical(logits=P_F_s)
+            action = categorical.sample()
+            state_colors[t] = action.item()
+            total_log_P_F += categorical.log_prob(action)
+
+            if t == n_nodes - 1:
+                _set_graph_colors_from_tensor(reward_graph, state_colors)
+                reward = custom_reward(reward_graph, wfn, n_q, l0, l1)
+
+            x = state_colors.clone().unsqueeze(1)
+            data = Data(x=x, y=y, edge_index=edge_index, edge_attr=edge_attr)
+            P_F_s, P_B_s = model(data.x, data.y, data.edge_index, data.edge_attr, data.batch)
+
+            mask_b = _backward_mask_from_color_tensor(state_colors, neighbor_idx[t], bound, n_terms)
+            P_B_s = torch.where(mask_b, P_B_s, -100)
+            total_log_P_B += Categorical(logits=P_B_s).log_prob(action)
+
+        minibatch_loss += trajectory_balance_loss(
+            model.logZ,
+            total_log_P_F,
+            total_log_P_B,
+            reward,
+        )
+
+        sampled_colorings.append(state_colors.detach().cpu().clone())
+
+        if episode % update_freq == 0:
+            losses.append(minibatch_loss.item())
+            minibatch_loss.backward()
+            opt.step()
+            opt.zero_grad()
+            minibatch_loss = 0
+            torch.save(
+                {
+                    "epoch": episode,
+                    "model_state_dict": model.cpu().state_dict(),
+                    "optimizer_state_dict": opt.state_dict(),
+                    "loss": losses,
+                },
+                fig_name + model_suffix,
+            )
+            model.to(device)
+
+    return sampled_colorings, losses
+
+
+def coeff_GIN_TB_training_custom_reward_state_vector(
+    graph,
+    n_terms,
+    n_hid_units,
+    n_episodes,
+    learning_rate,
+    update_freq,
+    seed,
+    wfn,
+    n_q,
+    fig_name,
+    n_emb,
+    l0,
+    l1,
+):
+    """State-vector version of coeff_GIN_TB_training_custom_reward."""
+    device = get_training_device()
+    return _coeff_graph_model_TB_training_custom_reward_state_vector(
+        graph,
+        n_terms,
+        n_hid_units,
+        n_episodes,
+        learning_rate,
+        update_freq,
+        seed,
+        wfn,
+        n_q,
+        fig_name,
+        n_emb,
+        l0,
+        l1,
+        model_cls=GIN_terms,
+        model_suffix="_statevec_ginTBmodel.pth",
+        device=device,
+    )
+
+
+def coeff_GAT_TB_training_custom_reward_state_vector(
+    graph,
+    n_terms,
+    n_hid_units,
+    n_episodes,
+    learning_rate,
+    update_freq,
+    seed,
+    wfn,
+    n_q,
+    fig_name,
+    n_emb,
+    l0,
+    l1,
+):
+    """State-vector version of coeff_GAT_TB_training_custom_reward."""
+    device = get_training_device()
+    return _coeff_graph_model_TB_training_custom_reward_state_vector(
+        graph,
+        n_terms,
+        n_hid_units,
+        n_episodes,
+        learning_rate,
+        update_freq,
+        seed,
+        wfn,
+        n_q,
+        fig_name,
+        n_emb,
+        l0,
+        l1,
+        model_cls=GAT_terms,
+        model_suffix="_statevec_gatTBmodel.pth",
+        device=device,
+    )
+
+
+def coeff_Transformer_TB_training_custom_reward_state_vector(
+    graph,
+    n_terms,
+    n_hid_units,
+    n_episodes,
+    learning_rate,
+    update_freq,
+    seed,
+    wfn,
+    n_q,
+    fig_name,
+    n_emb,
+    l0,
+    l1,
+):
+    """State-vector version of coeff_Transformer_TB_training_custom_reward."""
+    device = get_training_device()
+    return _coeff_graph_model_TB_training_custom_reward_state_vector(
+        graph,
+        n_terms,
+        n_hid_units,
+        n_episodes,
+        learning_rate,
+        update_freq,
+        seed,
+        wfn,
+        n_q,
+        fig_name,
+        n_emb,
+        l0,
+        l1,
+        model_cls=GraphTransformer_terms,
+        model_suffix="_statevec_graphTransformerTBmodel.pth",
+        device=device,
+    )
