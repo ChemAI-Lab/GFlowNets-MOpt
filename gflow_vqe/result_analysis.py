@@ -295,7 +295,7 @@ def check_sampled_graphs_wf_plot(figure, sampled_graphs, train_wfn, fci_wfn, n_q
     n_valid_show = min(n_plot, len(valid_graphs))
 
     print('Number of valid unique graphs ={}'.format(len(valid_graphs)))
-    print('Best {} valid groupings by lowest FCI eps^2 M (measurement count proxy)'.format(n_valid_show))
+    print('Best {} valid groupings by lowest FCI eps^2 M'.format(n_valid_show))
 
     for i in range(n_valid_show):
       print('eps^2 M (FCI)={} and max color {}'.format(
