@@ -7,22 +7,37 @@ from tequila.grouping import *
 import argparse
 import pickle
 
-def parser():
-    parser = argparse.ArgumentParser(description="Parse function name from terminal")
+_SUPPORTED_WFN_CHOICES = ("FCI", "HF", "CISD")
+
+def parse_driver_args(argv=None):
+    """Parse molecule + optional wavefunction choice for driver-style scripts.
+
+    Uses parse_known_args so legacy scripts that only care about the molecule
+    name keep working even if they receive extra CLI flags.
+    """
+    parser = argparse.ArgumentParser(description="Parse molecule and optional wavefunction choice")
     
-    # Define the argument for function name
     parser.add_argument(
         "func_name",
         type=str,
         help="The name of the molecule to call (e.g., H2, H4, H6, LiH, BeH2, N2)"
     )
+    parser.add_argument(
+        "--wfn",
+        type=lambda s: str(s).upper(),
+        default="FCI",
+        choices=_SUPPORTED_WFN_CHOICES,
+        help="Wavefunction used for reward/variance calculations during training (default: FCI)",
+    )
 
-    args = parser.parse_args()
-    
-    # Get the function dynamically
-    func = globals().get(args.func_name)
+    args, _ = parser.parse_known_args(argv)
+    args.func = globals().get(args.func_name)
+    return args
 
-    return func
+def parser():
+    """Backward-compatible molecule parser used by existing scripts."""
+    args = parse_driver_args()
+    return args.func
 
 def H2():
     '''

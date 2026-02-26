@@ -242,6 +242,48 @@ def check_sampled_graphs_fci_plot(figure, sampled_graphs, wfn, n_qubit):
     for i in range(n_plot):
       print('eps^2 M={} and max color {}. Reward:{}'.format(get_groups_measurement(valid_graphs[i], wfn, n_qubit), max_color(valid_graphs[i]), meas_reward(valid_graphs[i], wfn, n_qubit)))
 
+
+def check_sampled_graphs_wf_plot(figure, sampled_graphs, train_wfn, fci_wfn, n_qubit, l0=0, l1=1):
+    filename = f"{figure}_graphs.png"
+
+    """Plot the best graphs ordered by training reward, but report FCI eps^2 M values."""
+    fig, ax = plt.subplots(4, 4, figsize=(40, 40))
+    n_plot = 16
+
+    print('Proportion of valid graphs:{}, ideal=1'.format(
+        sum([color_reward(i) > 0 for i in sampled_graphs]) / len(sampled_graphs)
+    ))
+
+    unique_graphs = []
+    seen_color_dicts = set()
+
+    for graph in sorted(
+        sampled_graphs,
+        key=lambda i: custom_reward(i, train_wfn, n_qubit, l0, l1),
+        reverse=True,
+    ):
+        color_dict = frozenset(nx.get_node_attributes(graph, "color").items())
+        if color_dict not in seen_color_dicts:
+            seen_color_dicts.add(color_dict)
+            unique_graphs.append(graph)
+
+    n_show = min(n_plot, len(unique_graphs))
+    print('Number of unique graphs ={}'.format(len(unique_graphs)))
+    print('Top {} graphs ordered by training reward (reported with FCI eps^2 M)'.format(n_show))
+
+    for i in range(n_show):
+      train_reward = custom_reward(unique_graphs[i], train_wfn, n_qubit, l0, l1)
+      fci_eps2m = get_groups_measurement(unique_graphs[i], fci_wfn, n_qubit)
+      print('eps^2 M (FCI)={} and max color {}. Training reward= {}'.format(fci_eps2m, max_color(unique_graphs[i]), train_reward))
+      plt.sca(ax[i//4, i%4])
+      plot_graph_wcolor_fci(unique_graphs[i], fci_wfn, n_qubit)
+
+    # Hide unused subplots when fewer than 16 unique graphs are available.
+    for i in range(n_show, n_plot):
+      ax[i//4, i%4].axis("off")
+
+    plt.savefig(filename, format='png')
+
 def histogram_all_fci(figure, sampled_graphs, wfn, n_qubit):
     filename = f"{figure}_histo_all.svg"
     valid_graphs = [g for g in sampled_graphs if color_reward(g) > 0]

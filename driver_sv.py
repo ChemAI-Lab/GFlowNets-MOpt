@@ -11,6 +11,17 @@ GPU = globals().get("GPU", False)
 device = torch.device("cuda:0" if GPU and torch.cuda.is_available() else "cpu")
 set_training_device(device)
 print("Training device={}".format(device))
+
+# Optional checkpoint resume.
+# Set to a .pth path (state-vector or matching older non-statevector GNN TB model checkpoint).
+RESUME_CHECKPOINT = "H2_ginTBmodel.pth"
+# If True, n_episodes means "additional episodes" after the checkpoint epoch.
+# If False, n_episodes is treated as the absolute final episode count.
+RESUME_ADDITIONAL_EPISODES = globals().get("RESUME_ADDITIONAL_EPISODES", True)
+if RESUME_CHECKPOINT is not None:
+    print("Resuming from checkpoint={}".format(RESUME_CHECKPOINT))
+    print("Resume additional episodes={}".format(RESUME_ADDITIONAL_EPISODES))
+
 ########################
 #Hamiltonian definition#
 # and initialization   #
@@ -78,38 +89,45 @@ print("    + n_emb_dim={}".format(n_emb_dim))
 ##################################
 # Training Loop!! ################
 ##################################
-#For custom reward, comment otherwise. 
+#For custom reward, comment otherwise.
 l0 = 0 #\Lambda_0 parameter for Measurement reward
 l1 = 1 #\Lambda_1 parameter for Color reward
 
 print("For custom reward:")
 print("    + l0={}".format(l0))
 print("    + l1={}".format(l1))
-#Flow matching/MLP based models
-#sampled_graphs, losses = colored_initial_flow_match_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name)
-#sampled_graphs, losses = precolored_flow_match_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name)
-#sampled_graphs, losses = pure_flow_match_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name)
-#Trajectory Balance/MLP based models
-#sampled_graphs, losses = colored_initial_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name)
-#sampled_graphs, losses = precolored_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name)
-#sampled_graphs, losses = pure_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name)
-#Trajectory balance/GINE based models
-#sampled_graphs, losses = GIN_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim)
-#sampled_graphs, losses = GIN_2GPU_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim,device_ids)
-#sampled_graphs, losses = coeff_GIN_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim)
-sampled_graphs, losses = coeff_GIN_TB_training_custom_reward(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim, l0, l1)
-#sampled_graphs, losses = coeff_GAT_TB_training_custom_reward(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim, l0, l1)
-#sampled_graphs, losses = coeff_Transformer_TB_training_custom_reward(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim, l0, l1)
-#sampled_graphs, losses = coeff_GIN_TB_training_wbound(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim, bound)
-#sampled_graphs, losses = GINcpu_TB_training_wbound(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim, bound)
-#Functions using state vector instead of networkx objects. They are roughly twice as fast.
-#sampled_colorings, losses = coeff_GIN_TB_training_custom_reward_state_vector(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim, l0, l1)
-#sampled_colorings, losses = coeff_GAT_TB_training_custom_reward_state_vector(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim, l0, l1)
-#sampled_colorings, losses = coeff_Transformer_TB_training_custom_reward_state_vector(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim, l0, l1)
-#sampled_graphs = state_vector_colorings_to_graphs(Gc, sampled_colorings)
-#Random samplers
-#sampled_graphs, losses = random_sampler(Gc, n_terms, n_hid_units, n_episodes, seed)
-#sampled_graphs, losses = random_sampler_masked(Gc, n_terms, n_hid_units, n_episodes, seed)
+
+# State-vector training functions (faster than networkx object versions).
+sampled_colorings, losses = coeff_GIN_TB_training_custom_reward_state_vector(
+    Gc,
+    n_terms,
+    n_hid_units,
+    n_episodes,
+    learning_rate,
+    update_freq,
+    seed,
+    reward_wfn,
+    n_q,
+    fig_name,
+    n_emb_dim,
+    l0,
+    l1,
+    resume_checkpoint=RESUME_CHECKPOINT,
+    resume_additional_episodes=RESUME_ADDITIONAL_EPISODES,
+)
+#sampled_colorings, losses = coeff_GAT_TB_training_custom_reward_state_vector(
+#    Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed,
+#    reward_wfn, n_q, fig_name, n_emb_dim, l0, l1,
+#    resume_checkpoint=RESUME_CHECKPOINT,
+#    resume_additional_episodes=RESUME_ADDITIONAL_EPISODES,
+#)
+#sampled_colorings, losses = coeff_Transformer_TB_training_custom_reward_state_vector(
+#    Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed,
+#    reward_wfn, n_q, fig_name, n_emb_dim, l0, l1,
+#    resume_checkpoint=RESUME_CHECKPOINT,
+#    resume_additional_episodes=RESUME_ADDITIONAL_EPISODES,
+#)
+sampled_graphs = state_vector_colorings_to_graphs(Gc, sampled_colorings)
 
 ##################################
 #Timing###########################

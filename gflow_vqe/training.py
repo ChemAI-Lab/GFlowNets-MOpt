@@ -1520,6 +1520,14 @@ def state_vector_colorings_to_graphs(base_graph, sampled_colorings):
     return sampled_graphs
 
 
+def _optimizer_state_to_device(optimizer, device):
+    """Move optimizer state tensors to the target device after loading a checkpoint."""
+    for state in optimizer.state.values():
+        for key, value in state.items():
+            if torch.is_tensor(value):
+                state[key] = value.to(device)
+
+
 def _coeff_graph_model_TB_training_custom_reward_state_vector(
     graph,
     n_terms,
@@ -1537,6 +1545,8 @@ def _coeff_graph_model_TB_training_custom_reward_state_vector(
     model_cls,
     model_suffix,
     device,
+    resume_checkpoint=None,
+    resume_additional_episodes=True,
 ):
     """Shared state-vector TB loop for GIN/GAT/GraphTransformer models."""
     set_seed(seed)
@@ -1563,11 +1573,29 @@ def _coeff_graph_model_TB_training_custom_reward_state_vector(
 
     losses, sampled_colorings = [], []
     minibatch_loss = 0
+    start_episode = 0
+    total_episodes = n_episodes
+
+    if resume_checkpoint is not None:
+        checkpoint = torch.load(resume_checkpoint, map_location="cpu")
+        model.load_state_dict(checkpoint["model_state_dict"])
+        if "optimizer_state_dict" in checkpoint and checkpoint["optimizer_state_dict"] is not None:
+            opt.load_state_dict(checkpoint["optimizer_state_dict"])
+            _optimizer_state_to_device(opt, device)
+        losses = list(checkpoint.get("loss", losses))
+        start_episode = int(checkpoint.get("epoch", -1)) + 1
+        if resume_additional_episodes:
+            total_episodes = start_episode + n_episodes
+        else:
+            total_episodes = n_episodes
 
     reward_graph = graph.copy()
     base_state = graph_to_tensor(graph).long().to(device)
 
-    tbar = trange(n_episodes, desc="Training iter (state-vector)")
+    if total_episodes <= start_episode:
+        return sampled_colorings, losses
+
+    tbar = trange(start_episode, total_episodes, desc="Training iter (state-vector)")
     for episode in tbar:
         state_colors = base_state.clone()
         x = state_colors.clone().unsqueeze(1)
@@ -1638,6 +1666,8 @@ def coeff_GIN_TB_training_custom_reward_state_vector(
     n_emb,
     l0,
     l1,
+    resume_checkpoint=None,
+    resume_additional_episodes=True,
 ):
     """State-vector version of coeff_GIN_TB_training_custom_reward."""
     device = get_training_device()
@@ -1658,6 +1688,8 @@ def coeff_GIN_TB_training_custom_reward_state_vector(
         model_cls=GIN_terms,
         model_suffix="_statevec_ginTBmodel.pth",
         device=device,
+        resume_checkpoint=resume_checkpoint,
+        resume_additional_episodes=resume_additional_episodes,
     )
 
 
@@ -1675,6 +1707,8 @@ def coeff_GAT_TB_training_custom_reward_state_vector(
     n_emb,
     l0,
     l1,
+    resume_checkpoint=None,
+    resume_additional_episodes=True,
 ):
     """State-vector version of coeff_GAT_TB_training_custom_reward."""
     device = get_training_device()
@@ -1695,6 +1729,8 @@ def coeff_GAT_TB_training_custom_reward_state_vector(
         model_cls=GAT_terms,
         model_suffix="_statevec_gatTBmodel.pth",
         device=device,
+        resume_checkpoint=resume_checkpoint,
+        resume_additional_episodes=resume_additional_episodes,
     )
 
 
@@ -1712,6 +1748,8 @@ def coeff_Transformer_TB_training_custom_reward_state_vector(
     n_emb,
     l0,
     l1,
+    resume_checkpoint=None,
+    resume_additional_episodes=True,
 ):
     """State-vector version of coeff_Transformer_TB_training_custom_reward."""
     device = get_training_device()
@@ -1732,4 +1770,6 @@ def coeff_Transformer_TB_training_custom_reward_state_vector(
         model_cls=GraphTransformer_terms,
         model_suffix="_statevec_graphTransformerTBmodel.pth",
         device=device,
+        resume_checkpoint=resume_checkpoint,
+        resume_additional_episodes=resume_additional_episodes,
     )

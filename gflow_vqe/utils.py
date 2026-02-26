@@ -13,6 +13,208 @@ from pennylane import numpy as np
 from openfermion.linalg import get_ground_state, get_sparse_operator, variance
 from openfermion.utils import count_qubits
 
+def normalize_wfn_method(method):
+    """Normalize supported wavefunction labels used for reward/variance calculations."""
+    if method is None:
+        return "FCI"
+    normalized = str(method).upper()
+    aliases = {
+        "FULLCI": "FCI",
+        "FULL-CI": "FCI",
+        "CI-SD": "CISD",
+    }
+    normalized = aliases.get(normalized, normalized)
+    if normalized not in {"FCI", "HF", "CISD"}:
+        raise ValueError("Unsupported wavefunction method '{}'. Use FCI, HF, or CISD.".format(method))
+    return normalized
+
+
+def _bitstate_to_list(bitstate):
+    """Convert bitstring-like objects (lists, arrays, Tequila BitString) to a list of ints."""
+    if hasattr(bitstate, "array"):
+        bitstate = bitstate.array
+    elif hasattr(bitstate, "to_array"):
+        bitstate = bitstate.to_array()
+    elif hasattr(bitstate, "binary"):
+        return [int(ch) for ch in str(bitstate.binary)]
+
+    if hasattr(bitstate, "tolist"):
+        bitstate = bitstate.tolist()
+
+    return [int(x) for x in bitstate]
+
+
+def _occupations_to_basis_index(occupations):
+    """Convert qubit occupations (little-endian qubit order) into a computational basis index."""
+    index = 0
+    for q, occ in enumerate(occupations):
+        if int(occ):
+            index |= (1 << q)
+    return index
+
+
+def _occupations_to_statevector(occupations):
+    """Create a computational basis statevector from a binary occupation list."""
+    import numpy as onp
+
+    n_qubits = len(occupations)
+    state = onp.zeros(2 ** n_qubits, dtype=complex)
+    state[_occupations_to_basis_index(occupations)] = 1.0
+    return state
+
+
+def _map_spin_state_to_qubits(mol, spin_occupations):
+    """Map a spin-orbital occupation state through the molecule's qubit transform."""
+    if hasattr(mol, "transformation") and hasattr(mol.transformation, "map_state"):
+        mapped = mol.transformation.map_state(state=spin_occupations)
+        return _bitstate_to_list(mapped)
+    return _bitstate_to_list(spin_occupations)
+
+
+def _build_spin_occupation(alpha_occ, beta_occ, n_spatial_orbitals, ordering):
+    """Build a spin-orbital occupation list from alpha/beta occupied spatial orbitals."""
+    occ = [0] * (2 * n_spatial_orbitals)
+    if ordering == "interleaved":
+        for p in alpha_occ:
+            occ[2 * p] = 1
+        for p in beta_occ:
+            occ[2 * p + 1] = 1
+    elif ordering == "blocked":
+        for p in alpha_occ:
+            occ[p] = 1
+        for p in beta_occ:
+            occ[n_spatial_orbitals + p] = 1
+    else:
+        raise ValueError("Unknown spin-orbital ordering '{}'".format(ordering))
+    return occ
+
+
+def _infer_spin_orbital_ordering(reference_spin_state, n_spatial_orbitals, n_alpha, n_beta):
+    """Infer whether Tequila uses interleaved or blocked spin ordering."""
+    hf_alpha = list(range(n_alpha))
+    hf_beta = list(range(n_beta))
+    interleaved = _build_spin_occupation(hf_alpha, hf_beta, n_spatial_orbitals, "interleaved")
+    if interleaved == reference_spin_state:
+        return "interleaved"
+    blocked = _build_spin_occupation(hf_alpha, hf_beta, n_spatial_orbitals, "blocked")
+    if blocked == reference_spin_state:
+        return "blocked"
+
+    raise RuntimeError(
+        "Could not infer spin-orbital ordering from the Tequila reference state. "
+        "Expected interleaved or blocked ordering."
+    )
+
+
+def get_hf_qubit_statevector(mol):
+    """Return the Hartree-Fock reference state as a qubit-basis statevector."""
+    if not hasattr(mol, "_reference_state"):
+        raise RuntimeError(
+            "Tequila molecule object does not expose _reference_state(); cannot build HF statevector."
+        )
+
+    reference_spin_state = _bitstate_to_list(mol._reference_state())
+    reference_qubit_state = _map_spin_state_to_qubits(mol, reference_spin_state)
+    return _occupations_to_statevector(reference_qubit_state)
+
+
+def get_cisd_qubit_statevector(mol, tiny=1e-12):
+    """Return the CISD qubit-basis statevector using the Tequila PySCF backend."""
+    try:
+        import numpy as onp
+        from tequila.quantumchemistry.pyscf_interface import QuantumChemistryPySCF
+        from pyscf.fci import cistring
+    except Exception as exc:
+        raise RuntimeError(
+            "CISD statevector construction requires Tequila's PySCF backend and PySCF."
+        ) from exc
+
+    if not hasattr(mol, "_reference_state"):
+        raise RuntimeError(
+            "Tequila molecule object does not expose _reference_state(); cannot infer spin ordering for CISD."
+        )
+
+    qc = QuantumChemistryPySCF.from_tequila(mol)
+    mf = qc._get_hf()
+    cisd_solver = qc._run_cisd()
+
+    if not hasattr(cisd_solver, "ci"):
+        raise RuntimeError("CISD solver object does not expose CI coefficients.")
+
+    try:
+        fcivec = cisd_solver.to_fcivec()
+    except TypeError:
+        fcivec = cisd_solver.to_fcivec(cisd_solver.ci)
+
+    reference_spin_state = _bitstate_to_list(mol._reference_state())
+
+    n_spatial_orbitals = mf.mo_coeff.shape[1]
+    nelec = mf.mol.nelec
+    if isinstance(nelec, (tuple, list)):
+        n_alpha, n_beta = int(nelec[0]), int(nelec[1])
+    else:
+        n_alpha = int(nelec) // 2
+        n_beta = int(nelec) - n_alpha
+
+    if len(reference_spin_state) != 2 * n_spatial_orbitals:
+        raise NotImplementedError(
+            "CISD statevector construction currently assumes no qubit tapering and 2*n_orbitals qubits in the spin basis."
+        )
+
+    ordering = _infer_spin_orbital_ordering(reference_spin_state, n_spatial_orbitals, n_alpha, n_beta)
+
+    alpha_strings = cistring.make_strings(range(n_spatial_orbitals), n_alpha)
+    beta_strings = cistring.make_strings(range(n_spatial_orbitals), n_beta)
+    fcivec = onp.asarray(fcivec).reshape(len(alpha_strings), len(beta_strings))
+
+    reference_qubit_state = _map_spin_state_to_qubits(mol, reference_spin_state)
+    n_qubits = len(reference_qubit_state)
+    state = onp.zeros(2 ** n_qubits, dtype=complex)
+
+    for ia, a_string in enumerate(alpha_strings):
+        alpha_occ = [p for p in range(n_spatial_orbitals) if (int(a_string) >> p) & 1]
+        for ib, b_string in enumerate(beta_strings):
+            coeff = fcivec[ia, ib]
+            if abs(coeff) < tiny:
+                continue
+            beta_occ = [p for p in range(n_spatial_orbitals) if (int(b_string) >> p) & 1]
+            spin_occ = _build_spin_occupation(alpha_occ, beta_occ, n_spatial_orbitals, ordering)
+            qubit_occ = _map_spin_state_to_qubits(mol, spin_occ)
+            state[_occupations_to_basis_index(qubit_occ)] += coeff
+
+    norm = onp.linalg.norm(state)
+    if norm < tiny:
+        raise RuntimeError("Constructed CISD statevector has near-zero norm.")
+    return state / norm
+
+
+def statevector_expectation_value(sparse_operator, statevector):
+    """Compute <psi|H|psi> for a sparse operator and statevector."""
+    import numpy as onp
+    return onp.vdot(statevector, sparse_operator.dot(statevector))
+
+
+def get_variance_wavefunction(mol, Hq, method="FCI", sparse_hamiltonian=None):
+    """Return (energy, statevector) for FCI/HF/CISD variance calculations."""
+    method = normalize_wfn_method(method)
+
+    if sparse_hamiltonian is None:
+        sparse_hamiltonian = get_sparse_operator(Hq)
+
+    if method == "FCI":
+        energy, wfn = get_ground_state(sparse_hamiltonian)
+        return energy, wfn
+
+    if method == "HF":
+        wfn = get_hf_qubit_statevector(mol)
+    elif method == "CISD":
+        wfn = get_cisd_qubit_statevector(mol)
+    else:
+        raise ValueError("Unsupported wavefunction method '{}'".format(method))
+
+    energy = statevector_expectation_value(sparse_hamiltonian, wfn)
+    return energy, wfn
+
 def get_terms(bin_H):
     """ Gets the terms from a Binary Hamiltonian excluding the constant term"""
     terms=[]
@@ -293,7 +495,7 @@ def graph_parents_precolored(state):
     return parent_states, parent_actions
 
 def get_groups_measurement(graph, wfn, n_qubit, tiny = 1e-10):
-    r"""Returns the /epsilon^2 M = [/sum_i\sqrt(Var G_i)]^2for the calculation with a given WFN. This version admits the FCI wfn only."""
+    r"""Returns /epsilon^2 M = [\sum_i \sqrt{Var(G_i)}]^2 for a given qubit-basis wavefunction."""
     h_color=extract_hamiltonian_by_color(graph)
     groups = generate_groups(h_color)
     sqrt_var=0
