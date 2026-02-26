@@ -273,8 +273,14 @@ def check_sampled_graphs_wf_plot(figure, sampled_graphs, train_wfn, fci_wfn, n_q
 
     for i in range(n_show):
       train_reward = custom_reward(unique_graphs[i], train_wfn, n_qubit, l0, l1)
+      train_eps2m = get_groups_measurement(unique_graphs[i], train_wfn, n_qubit)
       fci_eps2m = get_groups_measurement(unique_graphs[i], fci_wfn, n_qubit)
-      print('eps^2 M (FCI)={} and max color {}. Training reward= {}'.format(fci_eps2m, max_color(unique_graphs[i]), train_reward))
+      print('eps^2 M (train wfn)={} | eps^2 M (FCI)={} and max color {}. Training reward= {}'.format(
+          train_eps2m,
+          fci_eps2m,
+          max_color(unique_graphs[i]),
+          train_reward,
+      ))
       plt.sca(ax[i//4, i%4])
       plot_graph_wcolor_fci(unique_graphs[i], fci_wfn, n_qubit)
 
@@ -283,6 +289,19 @@ def check_sampled_graphs_wf_plot(figure, sampled_graphs, train_wfn, fci_wfn, n_q
       ax[i//4, i%4].axis("off")
 
     plt.savefig(filename, format='png')
+
+    valid_graphs = [g for g in unique_graphs if color_reward(g) > 0]
+    valid_graphs = sorted(valid_graphs, key=lambda i: get_groups_measurement(i, fci_wfn, n_qubit), reverse=False)
+    n_valid_show = min(n_plot, len(valid_graphs))
+
+    print('Number of valid unique graphs ={}'.format(len(valid_graphs)))
+    print('Best {} valid groupings by lowest FCI eps^2 M (measurement count proxy)'.format(n_valid_show))
+
+    for i in range(n_valid_show):
+      print('eps^2 M (FCI)={} and max color {}'.format(
+          get_groups_measurement(valid_graphs[i], fci_wfn, n_qubit),
+          max_color(valid_graphs[i]),
+      ))
 
 def histogram_all_fci(figure, sampled_graphs, wfn, n_qubit):
     filename = f"{figure}_histo_all.svg"
