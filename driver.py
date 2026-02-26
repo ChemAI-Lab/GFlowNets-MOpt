@@ -119,10 +119,25 @@ print(f"Training time: {t1 - t0:.2f} seconds")
 # Save graphs to file!! ##########
 ##################################
 
-with open(fig_name + "_sampled_graphs.p", 'wb') as f:
+sampled_graphs_path = fig_name + "_sampled_graphs.p"
+try:
+    with open(sampled_graphs_path, 'rb') as f:
+        previous_sampled_graphs = pickle.load(f)
+    if not isinstance(previous_sampled_graphs, list):
+        previous_sampled_graphs = list(previous_sampled_graphs)
+    sampled_graphs = previous_sampled_graphs + sampled_graphs
+    print(
+        "Concatenating sampled graphs: existing={} new={} total={}".format(
+            len(previous_sampled_graphs), len(sampled_graphs) - len(previous_sampled_graphs), len(sampled_graphs)
+        )
+    )
+except FileNotFoundError:
+    pass
+
+with open(sampled_graphs_path, 'wb') as f:
     pickle.dump(sampled_graphs, f, pickle.HIGHEST_PROTOCOL)
 
-print("Sampled graphs saved to file: {}".format(fig_name + "_sampled_graphs.p"))
+print("Sampled graphs saved to file: {}".format(sampled_graphs_path))
 ##################################################################################
 ## Done with the training loop, now we can analyze results.#######################
 ##################################################################################
