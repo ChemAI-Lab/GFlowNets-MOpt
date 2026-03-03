@@ -12,6 +12,7 @@ import pennylane as qml
 from pennylane import numpy as np
 from openfermion.linalg import get_ground_state, get_sparse_operator, variance
 from openfermion.utils import count_qubits
+from gflow_vqe.circuit_helpers import get_groups_2qgates
 
 def normalize_wfn_method(method):
     """Normalize supported wavefunction labels used for reward/variance calculations."""
@@ -545,11 +546,11 @@ def my_reward(graph, wfn, n_qubit):
 
     return reward
 
-def custom_reward(graph, wfn, n_qubit,l0,l1):
+def custom_reward(graph, wfn, n_qubit, l0, l1, l2=0):
     r"""Reward is based on the number of colors we have. The lower cliques the better.
     Invalid configs give 0. Additionally, employs 1/eps^2M where M is the number of Measurements
     to achieve accuracy \eps as reward function. The lower number of shots, the better."""
-    if l0 == 0 and l1 == 0:
+    if l0 == 0 and l1 == 0 and l2 == 0:
         return 0
 
     if is_not_valid(graph):
@@ -560,6 +561,8 @@ def custom_reward(graph, wfn, n_qubit,l0,l1):
         reward += l0 / get_groups_measurement(graph, wfn, n_qubit)
     if l1 != 0:
         reward += l1 * color_reward(graph)
+    if l2 != 0:
+        reward += l2 / get_groups_2qgates(graph)
 
     return reward
 

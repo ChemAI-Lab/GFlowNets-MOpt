@@ -92,10 +92,12 @@ print("    + n_emb_dim={}".format(n_emb_dim))
 #For custom reward, comment otherwise.
 l0 = 0 #\Lambda_0 parameter for Measurement reward
 l1 = 1 #\Lambda_1 parameter for Color reward
+l2 = 0 #\Lambda_2 parameter for total two-qubit gate reward
 
 print("For custom reward:")
 print("    + l0={}".format(l0))
 print("    + l1={}".format(l1))
+print("    + l2={}".format(l2))
 
 # State-vector training functions (faster than networkx object versions).
 sampled_colorings, losses = coeff_GIN_TB_training_custom_reward_state_vector(
@@ -112,18 +114,19 @@ sampled_colorings, losses = coeff_GIN_TB_training_custom_reward_state_vector(
     n_emb_dim,
     l0,
     l1,
+    l2,
     resume_checkpoint=RESUME_CHECKPOINT,
     resume_additional_episodes=RESUME_ADDITIONAL_EPISODES,
 )
 #sampled_colorings, losses = coeff_GAT_TB_training_custom_reward_state_vector(
 #    Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed,
-#    reward_wfn, n_q, fig_name, n_emb_dim, l0, l1,
+#    reward_wfn, n_q, fig_name, n_emb_dim, l0, l1, l2,
 #    resume_checkpoint=RESUME_CHECKPOINT,
 #    resume_additional_episodes=RESUME_ADDITIONAL_EPISODES,
 #)
 #sampled_colorings, losses = coeff_Transformer_TB_training_custom_reward_state_vector(
 #    Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed,
-#    reward_wfn, n_q, fig_name, n_emb_dim, l0, l1,
+#    reward_wfn, n_q, fig_name, n_emb_dim, l0, l1, l2,
 #    resume_checkpoint=RESUME_CHECKPOINT,
 #    resume_additional_episodes=RESUME_ADDITIONAL_EPISODES,
 #)
@@ -162,7 +165,7 @@ print("Sampled graphs saved to file: {}".format(sampled_graphs_path))
 #check_sampled_graphs_vqe_plot(fig_name, sampled_graphs) #Prints commutativity graphs for best performing groupings
 #check_sampled_graphs_vqe(sampled_graphs)
 #check_sampled_graphs_fci(sampled_graphs, fci_wfn, n_q)
-check_sampled_graphs_wf_plot(fig_name, sampled_graphs, reward_wfn, fci_wfn, n_q, l0=l0, l1=l1)
+check_sampled_graphs_wf_plot(fig_name, sampled_graphs, reward_wfn, fci_wfn, n_q, l0=l0, l1=l1, l2=l2)
 plot_loss_curve(fig_name, losses, title="Loss over Training Iterations")
 #histogram_last(sampled_graphs)
 #histogram_all(fig_name,sampled_graphs)

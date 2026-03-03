@@ -81,10 +81,12 @@ print("    + n_emb_dim={}".format(n_emb_dim))
 #For custom reward, comment otherwise. 
 l0 = 0 #\Lambda_0 parameter for Measurement reward
 l1 = 1 #\Lambda_1 parameter for Color reward
+l2 = 0 #\Lambda_2 parameter for total two-qubit gate reward
 
 print("For custom reward:")
 print("    + l0={}".format(l0))
 print("    + l1={}".format(l1))
+print("    + l2={}".format(l2))
 #Flow matching/MLP based models
 #sampled_graphs, losses = colored_initial_flow_match_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name)
 #sampled_graphs, losses = precolored_flow_match_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name)
@@ -97,15 +99,15 @@ print("    + l1={}".format(l1))
 #sampled_graphs, losses = GIN_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim)
 #sampled_graphs, losses = GIN_2GPU_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim,device_ids)
 #sampled_graphs, losses = coeff_GIN_TB_training(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim)
-sampled_graphs, losses = coeff_GIN_TB_training_custom_reward(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim, l0, l1)
-#sampled_graphs, losses = coeff_GAT_TB_training_custom_reward(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim, l0, l1)
-#sampled_graphs, losses = coeff_Transformer_TB_training_custom_reward(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim, l0, l1)
+sampled_graphs, losses = coeff_GIN_TB_training_custom_reward(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim, l0, l1, l2)
+#sampled_graphs, losses = coeff_GAT_TB_training_custom_reward(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim, l0, l1, l2)
+#sampled_graphs, losses = coeff_Transformer_TB_training_custom_reward(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim, l0, l1, l2)
 #sampled_graphs, losses = coeff_GIN_TB_training_wbound(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim, bound)
 #sampled_graphs, losses = GINcpu_TB_training_wbound(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim, bound)
 #Functions using state vector instead of networkx objects. They are roughly twice as fast.
-#sampled_colorings, losses = coeff_GIN_TB_training_custom_reward_state_vector(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim, l0, l1)
-#sampled_colorings, losses = coeff_GAT_TB_training_custom_reward_state_vector(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim, l0, l1)
-#sampled_colorings, losses = coeff_Transformer_TB_training_custom_reward_state_vector(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim, l0, l1)
+#sampled_colorings, losses = coeff_GIN_TB_training_custom_reward_state_vector(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim, l0, l1, l2)
+#sampled_colorings, losses = coeff_GAT_TB_training_custom_reward_state_vector(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim, l0, l1, l2)
+#sampled_colorings, losses = coeff_Transformer_TB_training_custom_reward_state_vector(Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, reward_wfn, n_q, fig_name, n_emb_dim, l0, l1, l2)
 #sampled_graphs = state_vector_colorings_to_graphs(Gc, sampled_colorings)
 #Random samplers
 #sampled_graphs, losses = random_sampler(Gc, n_terms, n_hid_units, n_episodes, seed)
@@ -144,7 +146,7 @@ print("Sampled graphs saved to file: {}".format(sampled_graphs_path))
 #check_sampled_graphs_vqe_plot(fig_name, sampled_graphs) #Prints commutativity graphs for best performing groupings
 #check_sampled_graphs_vqe(sampled_graphs)
 #check_sampled_graphs_fci(sampled_graphs, fci_wfn, n_q)
-check_sampled_graphs_wf_plot(fig_name, sampled_graphs, reward_wfn, fci_wfn, n_q, l0=l0, l1=l1)
+check_sampled_graphs_wf_plot(fig_name, sampled_graphs, reward_wfn, fci_wfn, n_q, l0=l0, l1=l1, l2=l2)
 plot_loss_curve(fig_name, losses, title="Loss over Training Iterations")
 #histogram_last(sampled_graphs)
 #histogram_all(fig_name,sampled_graphs)

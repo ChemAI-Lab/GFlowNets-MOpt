@@ -1199,9 +1199,10 @@ def coeff_GIN_TB_training_wbound(graph, n_terms, n_hid_units, n_episodes, learni
 
     return sampled_graphs, losses
 
-def coeff_GIN_TB_training_custom_reward(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q, fig_name, n_emb, l0, l1):
+def coeff_GIN_TB_training_custom_reward(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q, fig_name, n_emb, l0, l1, l2=0):
     r"""
-    Custom training loop for GIN with a specific reward function. We pass the \lambda_0 and \lambda_1 parameters.
+    Custom training loop for GIN with a specific reward function. We pass the
+    \lambda_0, \lambda_1, and optional \lambda_2 parameters.
     """
     device = get_training_device()
 
@@ -1250,7 +1251,7 @@ def coeff_GIN_TB_training_custom_reward(graph, n_terms, n_hid_units, n_episodes,
             #If a trajectory is complete. in TB we don't need to calculate parents.
             if t == nx.number_of_nodes(state)-1:  # End of trajectory.
             # We calculate the reward
-                reward = custom_reward(new_state,wfn,n_q,l0,l1)
+                reward = custom_reward(new_state, wfn, n_q, l0, l1, l2)
 
             # We recompute P_F and P_B for new_state.
             x = graph_to_tensor(new_state).unsqueeze(1).long().to(device)
@@ -1293,9 +1294,10 @@ def coeff_GIN_TB_training_custom_reward(graph, n_terms, n_hid_units, n_episodes,
 
     return sampled_graphs, losses
 
-def coeff_GAT_TB_training_custom_reward(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q, fig_name, n_emb, l0, l1):
+def coeff_GAT_TB_training_custom_reward(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q, fig_name, n_emb, l0, l1, l2=0):
     r"""
-    Custom training loop for GAT with a specific reward function. We pass the \lambda_0 and \lambda_1 parameters.
+    Custom training loop for GAT with a specific reward function. We pass the
+    \lambda_0, \lambda_1, and optional \lambda_2 parameters.
     """
     device = get_training_device()
 
@@ -1344,7 +1346,7 @@ def coeff_GAT_TB_training_custom_reward(graph, n_terms, n_hid_units, n_episodes,
             #If a trajectory is complete. in TB we don't need to calculate parents.
             if t == nx.number_of_nodes(state)-1:  # End of trajectory.
             # We calculate the reward
-                reward = custom_reward(new_state,wfn,n_q,l0,l1)
+                reward = custom_reward(new_state, wfn, n_q, l0, l1, l2)
 
             # We recompute P_F and P_B for new_state.
             x = graph_to_tensor(new_state).unsqueeze(1).long().to(device)
@@ -1387,9 +1389,10 @@ def coeff_GAT_TB_training_custom_reward(graph, n_terms, n_hid_units, n_episodes,
 
     return sampled_graphs, losses
 
-def coeff_Transformer_TB_training_custom_reward(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q, fig_name, n_emb, l0, l1):
+def coeff_Transformer_TB_training_custom_reward(graph, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed, wfn, n_q, fig_name, n_emb, l0, l1, l2=0):
     r"""
-    Custom training loop for a Graph Transformer with a specific reward function. We pass the \lambda_0 and \lambda_1 parameters.
+    Custom training loop for a Graph Transformer with a specific reward function.
+    We pass the \lambda_0, \lambda_1, and optional \lambda_2 parameters.
     """
     device = get_training_device()
 
@@ -1438,7 +1441,7 @@ def coeff_Transformer_TB_training_custom_reward(graph, n_terms, n_hid_units, n_e
             #If a trajectory is complete. in TB we don't need to calculate parents.
             if t == nx.number_of_nodes(state)-1:  # End of trajectory.
             # We calculate the reward
-                reward = custom_reward(new_state,wfn,n_q,l0,l1)
+                reward = custom_reward(new_state, wfn, n_q, l0, l1, l2)
 
             # We recompute P_F and P_B for new_state.
             x = graph_to_tensor(new_state).unsqueeze(1).long().to(device)
@@ -1542,6 +1545,7 @@ def _coeff_graph_model_TB_training_custom_reward_state_vector(
     n_emb,
     l0,
     l1,
+    l2,
     model_cls,
     model_suffix,
     device,
@@ -1613,7 +1617,7 @@ def _coeff_graph_model_TB_training_custom_reward_state_vector(
 
             if t == n_nodes - 1:
                 _set_graph_colors_from_tensor(reward_graph, state_colors)
-                reward = custom_reward(reward_graph, wfn, n_q, l0, l1)
+                reward = custom_reward(reward_graph, wfn, n_q, l0, l1, l2)
 
             x = state_colors.clone().unsqueeze(1)
             data = Data(x=x, y=y, edge_index=edge_index, edge_attr=edge_attr)
@@ -1666,6 +1670,7 @@ def coeff_GIN_TB_training_custom_reward_state_vector(
     n_emb,
     l0,
     l1,
+    l2=0,
     resume_checkpoint=None,
     resume_additional_episodes=True,
 ):
@@ -1685,6 +1690,7 @@ def coeff_GIN_TB_training_custom_reward_state_vector(
         n_emb,
         l0,
         l1,
+        l2,
         model_cls=GIN_terms,
         model_suffix="_statevec_ginTBmodel.pth",
         device=device,
@@ -1707,6 +1713,7 @@ def coeff_GAT_TB_training_custom_reward_state_vector(
     n_emb,
     l0,
     l1,
+    l2=0,
     resume_checkpoint=None,
     resume_additional_episodes=True,
 ):
@@ -1726,6 +1733,7 @@ def coeff_GAT_TB_training_custom_reward_state_vector(
         n_emb,
         l0,
         l1,
+        l2,
         model_cls=GAT_terms,
         model_suffix="_statevec_gatTBmodel.pth",
         device=device,
@@ -1748,6 +1756,7 @@ def coeff_Transformer_TB_training_custom_reward_state_vector(
     n_emb,
     l0,
     l1,
+    l2=0,
     resume_checkpoint=None,
     resume_additional_episodes=True,
 ):
@@ -1767,6 +1776,7 @@ def coeff_Transformer_TB_training_custom_reward_state_vector(
         n_emb,
         l0,
         l1,
+        l2,
         model_cls=GraphTransformer_terms,
         model_suffix="_statevec_graphTransformerTBmodel.pth",
         device=device,

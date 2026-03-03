@@ -243,7 +243,7 @@ def check_sampled_graphs_fci_plot(figure, sampled_graphs, wfn, n_qubit):
       print('eps^2 M={} and max color {}. Reward:{}'.format(get_groups_measurement(valid_graphs[i], wfn, n_qubit), max_color(valid_graphs[i]), meas_reward(valid_graphs[i], wfn, n_qubit)))
 
 
-def check_sampled_graphs_wf_plot(figure, sampled_graphs, train_wfn, fci_wfn, n_qubit, l0=0, l1=1):
+def check_sampled_graphs_wf_plot(figure, sampled_graphs, train_wfn, fci_wfn, n_qubit, l0=0, l1=1, l2=0):
     filename = f"{figure}_graphs.png"
 
     """Plot the best graphs ordered by training reward, but report FCI eps^2 M values."""
@@ -259,7 +259,7 @@ def check_sampled_graphs_wf_plot(figure, sampled_graphs, train_wfn, fci_wfn, n_q
 
     for graph in sorted(
         sampled_graphs,
-        key=lambda i: custom_reward(i, train_wfn, n_qubit, l0, l1),
+        key=lambda i: custom_reward(i, train_wfn, n_qubit, l0, l1, l2),
         reverse=True,
     ):
         color_dict = frozenset(nx.get_node_attributes(graph, "color").items())
@@ -272,7 +272,7 @@ def check_sampled_graphs_wf_plot(figure, sampled_graphs, train_wfn, fci_wfn, n_q
     print('Top {} graphs ordered by training reward (reported with FCI eps^2 M)'.format(n_show))
 
     for i in range(n_show):
-      train_reward = custom_reward(unique_graphs[i], train_wfn, n_qubit, l0, l1)
+      train_reward = custom_reward(unique_graphs[i], train_wfn, n_qubit, l0, l1, l2)
       train_eps2m = get_groups_measurement(unique_graphs[i], train_wfn, n_qubit)
       fci_eps2m = get_groups_measurement(unique_graphs[i], fci_wfn, n_qubit)
       print('eps^2 M (train wfn)={} | eps^2 M (FCI)={} and max color {}. Training reward= {}'.format(
