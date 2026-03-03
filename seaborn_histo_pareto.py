@@ -12,7 +12,13 @@ import matplotlib.ticker as mticker
 #Hamiltonian definition#
 # and initialization   #
 ########################
-molecule = parser()
+driver_args = parse_driver_args()
+molecule = driver_args.func
+if molecule is None:
+    raise ValueError("Unknown molecule '{}'".format(driver_args.func_name))
+
+fig_name = driver_args.func_name
+
 mol, H, Hferm, n_paulis, Hq = molecule()
 print("Number of Pauli products to measure: {}".format(n_paulis)) 
 ############################
@@ -22,8 +28,6 @@ print("Number of Pauli products to measure: {}".format(n_paulis))
 sparse_hamiltonian = get_sparse_operator(Hq)
 energy, fci_wfn = get_ground_state(sparse_hamiltonian)
 n_q = count_qubits(Hq)
-
-fig_name = "LiH"
 
 ##################################
 # Load graphs from file!! ##########
@@ -72,7 +76,7 @@ g.ax_joint.plot(
     pareto_sorted[:, 0], pareto_sorted[:, 1],
     color="orange", marker="o", markersize=8, linewidth=1.5, label="Pareto front"
 ) #color = "red", "#FF8C00"
-g.set_axis_labels("$\epsilon^2M(x)$", "$N_P-R_G(x)$",fontsize=14)
+g.set_axis_labels("$\epsilon^2M(x)$", "$N_G(x)$",fontsize=14)
 
 # KDE marginals (filled)
 sns.kdeplot(x=x, ax=g.ax_marg_x, fill=True,color="purple")
@@ -96,4 +100,4 @@ g.ax_joint.set_ylim(9, 30)
 g.ax_joint.yaxis.set_major_locator(mticker.MaxNLocator(integer=True))
 
 # 5) Save SVG at 600 dpi
-g.figure.savefig("pareto_joint_all.svg", format="svg", dpi=600, bbox_inches="tight")
+g.figure.savefig(fig_name + "_pareto_joint_all.svg", format="svg", dpi=600, bbox_inches="tight")

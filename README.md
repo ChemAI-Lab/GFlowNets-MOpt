@@ -52,6 +52,28 @@ On driver.py, we can change parameters for GFlowNets like:
 
 Experimental! Parallel training implemented, we have multiple models (1/process) in the para driver and single-model versions where the updates occur on each processor or by collecting the results and updating outside the sampling parallel loop.
 
+To run the variance sanity check for a wavefunction on a deterministic greedy grouping, use:
+
+```bash
+python wfn_variance_check.py molecule
+```
+
+This uses `FCI` by default. You can also choose the wavefunction used for the variance/reward check with:
+
+```bash
+python wfn_variance_check.py molecule --wfn FCI
+python wfn_variance_check.py molecule --wfn HF
+python wfn_variance_check.py molecule --wfn CISD
+```
+
+For example:
+
+```bash
+python wfn_variance_check.py H2 --wfn HF
+```
+
+The script prints the selected molecule, the wavefunction method, the FCI and selected-wavefunction energies, the number of qubits and measurement groups, `eps^2 M` evaluated with both the selected wavefunction and FCI, and the first few grouped variances for comparison.
+
 
 ## Bibtex
 
