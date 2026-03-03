@@ -46,7 +46,7 @@ def main() -> None:
 
     binary_hamiltonian = BinaryHamiltonian.init_from_qubit_hamiltonian(H)
     terms = get_terms(binary_hamiltonian)
-    comp_matrix = QWC_CompMatrix(terms)
+    comp_matrix = FC_CompMatrix(terms)
     graph = obj_to_comp_graph(terms, comp_matrix)
 
     color_map = nx.coloring.greedy_color(graph, strategy="largest_first")
@@ -54,7 +54,7 @@ def main() -> None:
 
     print("Greedy coloring max color={}".format(max_color(graph)))
     color_stats = grouping_circuit_stats_tequila(graph)
-    si_stats = sorted_insertion_circuit_stats_tequila(binary_hamiltonian, condition="qwc")
+    si_stats = sorted_insertion_circuit_stats_tequila(binary_hamiltonian, condition="fc")
 
     _print_circuit_stats("Greedy coloring grouping (Tequila compiled)", color_stats)
     _print_circuit_stats("Sorted insertion grouping (fc, Tequila compiled)", si_stats)
