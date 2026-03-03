@@ -23,6 +23,7 @@ animation_frame_step = 1   # Use >1 to skip snapshots (e.g., 5 or 10)
 animation_max_frames = None  # e.g., 600 to cap total frames
 animation_dpi = 120
 points_cache_enabled = True
+save_kde_animation = True
 
 # Plot configuration matching animation.py
 joint_xlim = (0.55, 1.8)
@@ -174,40 +175,14 @@ def resolve_writer(format_name, fps):
     raise ValueError("Unsupported animation_format '{}'. Use 'mp4' or 'gif'.".format(format_name))
 
 
-def main():
-    driver_args = parse_driver_args()
-    molecule = driver_args.func
-    molecule_name = driver_args.func_name
-    if molecule is None:
-        raise ValueError("Unknown molecule '{}'".format(molecule_name))
-
-    current_fig_name = fig_name if fig_name is not None else molecule_name
-    sampled_graphs_path = current_fig_name + "_sampled_graphs.p"
-    points_cache_path = current_fig_name + "_pareto_points_cache.npz"
-    output_path = "{}_pareto_animation.{}".format(current_fig_name, animation_format.lower())
-
-    mol, H, Hferm, n_paulis, Hq = molecule()
-    print("Number of Pauli products to measure: {}".format(n_paulis))
-
-    sparse_hamiltonian = get_sparse_operator(Hq)
-    energy, fci_wfn = get_ground_state(sparse_hamiltonian)
-    n_q = count_qubits(Hq)
-
-    with open(sampled_graphs_path, "rb") as f:
-        sampled_graphs = pickle.load(f)
-
-    sampled_graphs = [g for g in sampled_graphs if color_reward(g) > 0]
-    if len(sampled_graphs) == 0:
-        raise RuntimeError("No valid sampled graphs were found in '{}'.".format(sampled_graphs_path))
-
-    print("Number of valid graphs in file: {}".format(len(sampled_graphs)))
-    points = load_or_build_points(points_cache_path, sampled_graphs_path, sampled_graphs, fci_wfn, n_q, n_paulis)
+def render_histogram_animation(
+    points,
+    frame_indices,
+    pareto_snapshots,
+    output_path,
+):
     x = points[:, 0]
     y = points[:, 1]
-
-    frame_indices = build_frame_indices(len(points), animation_frame_step, animation_max_frames)
-    pareto_snapshots = build_pareto_snapshots(points, frame_indices)
-
     x_bins = np.linspace(joint_xlim[0], joint_xlim[1], x_hist_nbins + 1)
     hist_snapshots = build_histogram_snapshots(points, frame_indices, x_bins, y_hist_bins)
     full_hist_x, _ = np.histogram(x, bins=x_bins)
@@ -215,7 +190,6 @@ def main():
     max_hist_x = max(1, int(full_hist_x.max()))
     max_hist_y = max(1, int(full_hist_y.max()))
 
-    sns.set_theme(style="whitegrid")
     fig = plt.figure(figsize=(joint_height, joint_height))
     gs = GridSpec(
         2,
@@ -343,6 +317,137 @@ def main():
     print("Animation encode time: {:.3f}s".format(time.perf_counter() - save_start_time))
     plt.close(fig)
     print("Animation saved.")
+
+
+def render_kde_animation(
+    points,
+    frame_indices,
+    pareto_snapshots,
+    output_path,
+):
+    sns.set_theme(style="whitegrid")
+    joint_grid = sns.JointGrid(x=points[:1, 0], y=points[:1, 1], height=joint_height, space=0)
+    fig = joint_grid.figure
+
+    def update(frame_count):
+        current_points = points[:frame_count]
+        current_front = pareto_snapshots[frame_count]
+        x = current_points[:, 0]
+        y = current_points[:, 1]
+
+        joint_grid.ax_joint.cla()
+        joint_grid.ax_marg_x.cla()
+        joint_grid.ax_marg_y.cla()
+
+        joint_grid.set_axis_labels(r"$\epsilon^2M(x)$", r"$N_G(x)$", fontsize=14)
+        joint_grid.ax_joint.scatter(x, y, alpha=0.5, s=30, edgecolors="none")
+
+        if current_front.size > 0:
+            joint_grid.ax_joint.plot(
+                current_front[:, 0],
+                current_front[:, 1],
+                color="orange",
+                marker="o",
+                markersize=6,
+                linewidth=1.5,
+                label="Pareto front",
+            )
+
+        if len(x) > 1 and np.std(x) > 0:
+            sns.kdeplot(x=x, ax=joint_grid.ax_marg_x, fill=True, color="purple", bw_adjust=0.8)
+        if len(y) > 1 and np.std(y) > 0:
+            sns.kdeplot(y=y, ax=joint_grid.ax_marg_y, fill=True, color="green", bw_adjust=0.8)
+
+        joint_grid.ax_joint.plot(
+            si_reference_point[0],
+            si_reference_point[1],
+            marker="D",
+            color="red",
+            markersize=7,
+            linestyle="None",
+            label="SI",
+        )
+        joint_grid.ax_joint.text(
+            0.02,
+            0.98,
+            "Samples: {}/{}".format(frame_count, len(points)),
+            transform=joint_grid.ax_joint.transAxes,
+            va="top",
+            ha="left",
+        )
+        joint_grid.ax_joint.legend(loc="best")
+        joint_grid.ax_joint.set_xlim(*joint_xlim)
+        joint_grid.ax_joint.set_ylim(*joint_ylim)
+        joint_grid.ax_joint.yaxis.set_major_locator(mticker.MaxNLocator(integer=True))
+
+        joint_grid.ax_marg_x.set_xlim(joint_grid.ax_joint.get_xlim())
+        joint_grid.ax_marg_y.set_ylim(joint_grid.ax_joint.get_ylim())
+        joint_grid.ax_marg_x.set_ylabel("")
+        joint_grid.ax_marg_y.set_xlabel("")
+        joint_grid.ax_marg_x.tick_params(axis="x", labelbottom=False)
+        joint_grid.ax_marg_y.tick_params(axis="y", labelleft=False)
+        joint_grid.ax_marg_y.set_xticks([])
+        joint_grid.ax_marg_x.set_yticks([])
+        joint_grid.ax_marg_y.set_xticklabels([])
+        joint_grid.ax_marg_x.set_yticklabels([])
+        fig.subplots_adjust(bottom=0.10, left=0.10, right=0.98, top=0.98)
+
+        return (joint_grid.ax_joint, joint_grid.ax_marg_x, joint_grid.ax_marg_y)
+
+    ani = animation.FuncAnimation(
+        fig,
+        update,
+        frames=frame_indices,
+        interval=1000 / max(animation_fps, 1),
+        blit=False,
+        repeat=False,
+        cache_frame_data=False,
+    )
+
+    writer = resolve_writer(animation_format, animation_fps)
+    print("Saving KDE animation to {}".format(output_path))
+    save_start_time = time.perf_counter()
+    ani.save(output_path, writer=writer, dpi=animation_dpi)
+    print("KDE animation encode time: {:.3f}s".format(time.perf_counter() - save_start_time))
+    plt.close(fig)
+    print("KDE animation saved.")
+
+
+def main():
+    driver_args = parse_driver_args()
+    molecule = driver_args.func
+    molecule_name = driver_args.func_name
+    if molecule is None:
+        raise ValueError("Unknown molecule '{}'".format(molecule_name))
+
+    current_fig_name = fig_name if fig_name is not None else molecule_name
+    sampled_graphs_path = current_fig_name + "_sampled_graphs.p"
+    points_cache_path = current_fig_name + "_pareto_points_cache.npz"
+    output_path = "{}_pareto_animation.{}".format(current_fig_name, animation_format.lower())
+    output_path_kde = "{}_pareto_animation_KDE.{}".format(current_fig_name, animation_format.lower())
+
+    mol, H, Hferm, n_paulis, Hq = molecule()
+    print("Number of Pauli products to measure: {}".format(n_paulis))
+
+    sparse_hamiltonian = get_sparse_operator(Hq)
+    energy, fci_wfn = get_ground_state(sparse_hamiltonian)
+    n_q = count_qubits(Hq)
+
+    with open(sampled_graphs_path, "rb") as f:
+        sampled_graphs = pickle.load(f)
+
+    sampled_graphs = [g for g in sampled_graphs if color_reward(g) > 0]
+    if len(sampled_graphs) == 0:
+        raise RuntimeError("No valid sampled graphs were found in '{}'.".format(sampled_graphs_path))
+
+    print("Number of valid graphs in file: {}".format(len(sampled_graphs)))
+    points = load_or_build_points(points_cache_path, sampled_graphs_path, sampled_graphs, fci_wfn, n_q, n_paulis)
+    frame_indices = build_frame_indices(len(points), animation_frame_step, animation_max_frames)
+    pareto_snapshots = build_pareto_snapshots(points, frame_indices)
+    sns.set_theme(style="whitegrid")
+    render_histogram_animation(points, frame_indices, pareto_snapshots, output_path)
+    if save_kde_animation:
+        render_kde_animation(points, frame_indices, pareto_snapshots, output_path_kde)
 
 
 if __name__ == "__main__":
