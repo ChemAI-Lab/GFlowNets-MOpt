@@ -68,34 +68,44 @@ To run the code, use:
 python driver.py molecule > out.log
 ```
 
+For the state-vector version of the training loop which is more efficient than the original implementation, use:
+
+```bash
+python driver_sv.py molecule > out.log
+```
+
+Both `driver.py` and `driver_sv.py` accept the optional wavefunction argument
+
+```bash
+--wfn FCI
+--wfn HF
+--wfn CISD
+```
+
+which selects the wavefunction used for variance-based reward calculations during training. `FCI` is the default. For example:
+
+```bash
+python driver.py H2 --wfn CISD > out.log
+python driver_sv.py LiH --wfn HF > out.log
+```
+
+If a file named `fig_name_sampled_graphs.p` already exists, both scripts append the newly sampled graphs to the existing file instead of overwriting it.
+
+To restart training from a previous checkpoint, use `driver_sv.py` and set the variables near the top of the file:
+
+```python
+RESUME_CHECKPOINT = "previous_model_checkpoint.pth"
+RESUME_ADDITIONAL_EPISODES = True
+```
+
+If `RESUME_ADDITIONAL_EPISODES = True`, then `n_episodes` is interpreted as the number of additional episodes after the checkpoint epoch. If it is `False`, then `n_episodes` is interpreted as the absolute final episode count.
+
 Where molecule can be $H_2$, $H_4$, $LiH$, $BeH_2$, $H_2O$, $N_2$. The default bond distance is 1 Å. This can be modified in the gflow_vqe/hamiltonians.py file. 
 
 On driver.py, we can change parameters for GFlowNets like:
 `fig_name`, Training rate, number of `hid_uinits`, number of episodes, embedding dimension, `update_freq` and the random seed. We leave options for GPU usage, although we saw no real benefit. 
 
 Experimental! Parallel training implemented, we have multiple models (1/process) in the para driver and single-model versions where the updates occur on each processor or by collecting the results and updating outside the sampling parallel loop.
-
-To run the variance sanity check for a wavefunction on a deterministic greedy grouping, use:
-
-```bash
-python wfn_variance_check.py molecule
-```
-
-This uses `FCI` by default. You can also choose the wavefunction used for the variance/reward check with:
-
-```bash
-python wfn_variance_check.py molecule --wfn FCI
-python wfn_variance_check.py molecule --wfn HF
-python wfn_variance_check.py molecule --wfn CISD
-```
-
-For example:
-
-```bash
-python wfn_variance_check.py H2 --wfn HF
-```
-
-The script prints the selected molecule, the wavefunction method, the FCI and selected-wavefunction energies, the number of qubits and measurement groups, `eps^2 M` evaluated with both the selected wavefunction and FCI, and the first few grouped variances for comparison.
 
 To compare sorted insertion, Tequila ICS, and ICS initialized from a GFlowNet-compatible grouping, use:
 
