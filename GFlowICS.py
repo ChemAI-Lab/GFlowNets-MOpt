@@ -153,11 +153,20 @@ def load_best_gflow_grouping(path, wfn, n_qubits, binary_hamiltonian):
 
 
 def main(argv=None):
+    ##############Block for normal Hamiltonians###########################
     args = parse_args(argv)
     gflow_graphs_path = args.gflow_graphs or "{}_sampled_graphs.p".format(args.func_name)
 
     mol, H, _, n_paulis, Hq = args.func()
     print("Number of Pauli products to measure: {}".format(n_paulis))
+    ######################################################################
+    ##############Block for loaded Hamiltonians###########################
+    #This driver takes Hamiltonians from npj Quantum Inf 9, 14 (2023). https://doi.org/10.1038/s41534-023-00683-y
+    # MOLECULES = ["h2", "lih", "beh2", "h2o", "nh3", "n2"]
+    # mol="lih"
+    # Hq, H = load_qubit_hamiltonian(mol)
+    # print("Number of Pauli products to measure: {}".format(len(Hq.terms) - 1))
+    ######################################################################
     sparse_hamiltonian = get_sparse_operator(Hq)
     energy, variance_wfn = get_variance_wavefunction(mol, Hq, method=args.wfn, sparse_hamiltonian=sparse_hamiltonian)
     print("{} Energy={}".format(args.wfn, energy))
