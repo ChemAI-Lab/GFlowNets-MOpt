@@ -21,16 +21,29 @@ Reward functions can be
 - ***meas_reward*** which uses exact/CISD variances to get the measurement number and $\lambda_0=1$, $\lambda_1=1$ in the reward.
 - ***my_reward*** which uses exact/CISD variances to get the measurement number and a $\lambda_0=10^3$ value
 - ***custom_reward*** which combines three terms according to
-  $$
-  R(x) = \lambda_{0} R_M(x) + \lambda_{1} R_G(x)+\lambda_2 R_{N_{2q}}(x),
-  $$
+
+```math
+R(x) = \lambda_{0} R_M(x) + \lambda_{1} R_G(x) + \lambda_{2} R_{N_{2q}}(x)
+```
+
   where
-  $$
-  R_M(x) = \frac{1}{\varepsilon^2M(x)}, \\
-  \varepsilon^2M(x) = \left( \sum_{\alpha=1}^{N_f} \sqrt{\mathrm{Var}(\hat{H}_\alpha)} \right)^2, \\
-  R_G(x) = N_P - N_G(x), \\
-  R_{N_{2q}}(x) = \frac{1}{N_{2q}(x)}.
-  $$
+
+```math
+R_M(x) = \frac{1}{\varepsilon^2 M(x)}
+```
+
+```math
+\varepsilon^2 M(x) = \left( \sum_{\alpha=1}^{N_f} \sqrt{\mathrm{Var}(\hat{H}_\alpha)} \right)^2
+```
+
+```math
+R_G(x) = N_P - N_G(x)
+```
+
+```math
+R_{N_{2q}}(x) = \frac{1}{N_{2q}(x)}
+```
+
   Here, $N_{2q}(x)$ is the total number of two-qubit gates required by the corresponding commuting-group measurement circuits.
 
 For the $N_{2q}$ term, we generate commuting-group measurement circuits with Tequila and count the total number of two-qubit gates across all groups. The circuit synthesis follows the Tequila compilation pipeline and uses the linear reversible circuit synthesis method of Ketan N. Patel, Igor L. Markov, and John P. Hayes, "Optimal synthesis of linear reversible circuits," *Quantum Info. Comput.* **8**(3), 282-294 (2008).
