@@ -29,11 +29,7 @@ R(x) = \lambda_{0} R_M(x) + \lambda_{1} R_G(x) + \lambda_{2} R_{N_{2q}}(x)
   where
 
 ```math
-R_M(x) = \frac{1}{\varepsilon^2 M(x)}
-```
-
-```math
-\varepsilon^2 M(x) = \left( \sum_{\alpha=1}^{N_f} \sqrt{\mathrm{Var}(\hat{H}_\alpha)} \right)^2
+R_M(x) = \frac{1}{\varepsilon^2 M(x)}; \varepsilon^2 M(x) = \left( \sum_{\alpha=1}^{N_f} \sqrt{\mathrm{Var}(\hat{H}_\alpha)} \right)^2
 ```
 
 ```math
