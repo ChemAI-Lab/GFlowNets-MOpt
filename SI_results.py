@@ -86,20 +86,20 @@ def print_optimal_allocation_result(label, options, binary_hamiltonian, fci_wfn)
 
 def main():
     ##############Block for normal Hamiltonians###########################
-    # args = parse_driver_args()
-    # molecule = args.func
-    # if molecule is None:
-    #     raise ValueError("Unknown molecule '{}'".format(args.func_name))
+    args = parse_driver_args()
+    molecule = args.func
+    if molecule is None:
+        raise ValueError("Unknown molecule '{}'".format(args.func_name))
 
-    # mol, H, Hferm, n_paulis, Hq = molecule()
-    # print("Number of Pauli products to measure: {}".format(n_paulis))
+    mol, H, Hferm, n_paulis, Hq = molecule()
+    print("Number of Pauli products to measure: {}".format(n_paulis))
     ######################################################################
     ##############Block for loaded Hamiltonians###########################
     #This driver takes Hamiltonians from npj Quantum Inf 9, 14 (2023). https://doi.org/10.1038/s41534-023-00683-y
     # MOLECULES = ["h2", "lih", "beh2", "h2o", "nh3", "n2"]
-    mol="lih"
-    Hq, H = load_qubit_hamiltonian(mol)
-    print("Number of Pauli products to measure: {}".format(len(Hq.terms) - 1))
+    # mol="lih"
+    # Hq, H = load_qubit_hamiltonian(mol)
+    # print("Number of Pauli products to measure: {}".format(len(Hq.terms) - 1))
     ######################################################################
     sparse_hamiltonian = get_sparse_operator(Hq)
     _, fci_wfn = get_ground_state(sparse_hamiltonian)

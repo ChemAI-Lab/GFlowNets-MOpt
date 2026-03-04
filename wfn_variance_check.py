@@ -49,7 +49,7 @@ def main():
     n_terms = nx.number_of_nodes(Gc)
     print("Number of Hamiltonian terms={}".format(n_terms))
 
-    # Deterministic valid coloring for a reproducible variance check.
+    # Deterministic valid coloring for variance check.
     graph = Gc.copy()
     color_map = nx.coloring.greedy_color(graph, strategy="largest_first")
     nx.set_node_attributes(graph, color_map, "color")
@@ -60,7 +60,7 @@ def main():
     print("eps^2 M using {} = {}".format(reward_wfn_method, eps2m_reward))
     print("eps^2 M using FCI = {}".format(eps2m_fci))
 
-    # Sanity-check reward helpers and backward-compatible get_groups_measurement usage.
+    # Sanity-check reward helpers and get_groups_measurement usage.
     print("meas_reward({}) = {}".format(reward_wfn_method, meas_reward(graph, reward_wfn, n_q)))
     print("meas_reward(FCI) = {}".format(meas_reward(graph, fci_wfn, n_q)))
     print("custom_reward({}) [l0=1,l1=1] = {}".format(reward_wfn_method, custom_reward(graph, reward_wfn, n_q, 1, 1)))
