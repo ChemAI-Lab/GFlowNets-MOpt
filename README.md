@@ -18,26 +18,40 @@ For most users, installing: pyscf openfermion matplotlib seaborn pennylane tequi
 Reward functions can be
 - ***color_reward*** based only on the number of colors.
 - ***vqe_reward*** which contains the estimated number of measurements, used in https://arxiv.org/abs/2410.16041
-- ***meas_reward*** which uses exact variances to get the measurement number and $\lambda_0=1$, $\lambda_1=1$ in the reward.
-- ***my_reward*** which uses exact variances to get the measurement number and a $\lambda_0=10^3$ value
-- ***custom_reward*** which uses exact variances to get the measurement number, and the user can pass the $\lambda_0$ and $\lambda_1$ values.
+- ***meas_reward*** which uses exact/CISD variances to get the measurement number and $\lambda_0=1$, $\lambda_1=1$ in the reward.
+- ***my_reward*** which uses exact/CISD variances to get the measurement number and a $\lambda_0=10^3$ value
+- ***custom_reward*** which combines three terms according to
+  $$
+  R(x) = \lambda_{0} R_M(x) + \lambda_{1} R_G(x)+\lambda_2 R_{N_{2q}}(x),
+  $$
+  where
+  $$
+  R_M(x) = \frac{1}{\varepsilon^2M(x)}, \\
+  \varepsilon^2M(x) = \left( \sum_{\alpha=1}^{N_f} \sqrt{\mathrm{Var}(\hat{H}_\alpha)} \right)^2, \\
+  R_G(x) = N_P - N_G(x), \\
+  R_{N_{2q}}(x) = \frac{1}{N_{2q}(x)}.
+  $$
+  Here, $N_{2q}(x)$ is the total number of two-qubit gates required by the corresponding commuting-group measurement circuits.
 
-Verify before running the reward function employed by the training protocol. The training functions are inside gflow_vqe/training.py. The list is available in the driver.py file with a small description of the models employed for each of them and the loss function implemented.
+For the $N_{2q}$ term, we generate commuting-group measurement circuits with Tequila and count the total number of two-qubit gates across all groups. The circuit synthesis follows the Tequila compilation pipeline and uses the linear reversible circuit synthesis method of Ketan N. Patel, Igor L. Markov, and John P. Hayes, "Optimal synthesis of linear reversible circuits," *Quantum Info. Comput.* **8**(3), 282-294 (2008).
+
+Variance-based rewards can be evaluated with different wavefunctions. The library supports `FCI`, `HF`, and `CISD` wavefunctions for variance and reward calculations, so training can use exact variances or an approximate wavefunction such as CISD. Verify before running which reward function and which wavefunction are employed by the training protocol. The training functions are inside gflow_vqe/training.py. The list is available in the driver.py file with a small description of the models employed for each of them and the loss function implemented.
 
 For the results of the paper ***"Discrete Flow-Based Generative Models for Measurement Optimization in Quantum Computing"***, we employed the training functions:
 - ***GIN_TB_training*** corresponding to the $\texttt{GINE}$ model described in the text.
 - ***coeff_GIN_TB_training*** corresponding to the $\texttt{GINE}_{w}$ model described in the text.
 - ***coeff_GIN_TB_training_custom_reward***
 
-All of them are using the  `my_reward` or `custom_reward` Reward functions. The upper bound for the search space is generated through a greedy coloring algorithm with a random sequential strategy and increased by +2
+All of them are using the `my_reward` or `custom_reward` reward functions. In the current implementation, `custom_reward` can mix measurement information, color reward, and Tequila-based two-qubit gate counts through the parameters `l0`, `l1`, and `l2`. The upper bound for the search space is generated through a greedy coloring algorithm with a random sequential strategy and increased by +2
 
 A mask function located in `gflow_vqe/gflow_utils.py` is employed to ensure that the generated graphs are valid and to limit the solution space. This limit can be changed by the user as required by employing the `coeff_GIN_TB_training_wbound` 
 
 To generate a plot of commutativity graphs of the best-performing groupings, modify the driver.py file by calling 
-`check_sampled_graphs_method_plot` instead of check_sampled_graphs_method. Lines are commented for user convenience. For method=fci, full CI variances are employed, while the vqe option uses only an estimator for them. This also outputs the best performing graphs according to `meas_reward`, and the valid graphs with the lowest measurement count. For ordering the graphs with respect to other reward functions (like the ones employed during training), we suggest taking the same function to a different file and modifying the reward according to the user's needs.
+`check_sampled_graphs_method_plot` instead of check_sampled_graphs_method. Lines are commented for user convenience. For wavefunction-based analysis, the code can use `FCI`, `HF`, or `CISD` variances depending on the selected workflow, while still reporting the best-performing graphs and the valid graphs with the lowest measurement count. For ordering the graphs with respect to other reward functions (like the ones employed during training), we suggest taking the same function to a different file and modifying the reward according to the user's needs.
 
 NN parameters and optimizer state are saved for each molecule in the .pth file.
 All sampled graphs are saved as fig_name_sampled_graphs.p for data analysis or posterior use in quantum computing software.
+The resulting groupings from the GFlowNet pipeline are non-overlapping groupings. Therefore, they can be used directly as initial points for overlapping measurement-allocation methods such as Iterative Coefficient Splitting (ICS) and Ghost Pauli products.
 
 To run the code, use:
 
@@ -73,6 +87,20 @@ python wfn_variance_check.py H2 --wfn HF
 ```
 
 The script prints the selected molecule, the wavefunction method, the FCI and selected-wavefunction energies, the number of qubits and measurement groups, `eps^2 M` evaluated with both the selected wavefunction and FCI, and the first few grouped variances for comparison.
+
+To compare sorted insertion, Tequila ICS, and ICS initialized from a GFlowNet-compatible grouping, use:
+
+```bash
+python GFlowICS.py molecule
+```
+
+You can also provide a specific sampled-graphs file:
+
+```bash
+python GFlowICS.py molecule --gflow-graphs molecule_sampled_graphs.p
+```
+
+Our ICS implementation is taken from the Tequila library and adapted to be compatible with the graph/coloring format used by the GFlowNet pipeline in this repository. If no sampled-graphs file is found, `GFlowICS.py` falls back to a greedy largest-first coloring written in the same graph format used by our algorithm.
 
 
 ## Bibtex
