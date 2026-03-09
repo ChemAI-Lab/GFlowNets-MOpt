@@ -16,6 +16,7 @@ from gflow_vqe.overlapping_helpers import (
     iterative_coefficient_splitting_from_gflow_grouping,
     iterative_coefficient_splitting_from_groups,
 )
+from gflow_vqe.circuit_helpers import grouping_circuit_stats_tequila
 from gflow_vqe.utils import (
     FC_CompMatrix,
     color_reward,
@@ -101,9 +102,13 @@ def _format_group(group):
 
 def _print_report(label, groups, suggested_sample_size, wfn):
     measurement_metric = optimal_allocation_metric(groups, suggested_sample_size, wfn)
+    two_qubit_gates = grouping_circuit_stats_tequila(
+        {idx: list(group.binary_terms) for idx, group in enumerate(groups)}
+    ).total_two_qubit_gates
     print("{}:".format(label))
     print("  Required number of measurements={}".format(measurement_metric))
     print("  Number of groups={}".format(len(groups)))
+    print("  Two-qubit gates across all groups={}".format(two_qubit_gates))
     print("  Suggested sample ratios={}".format([float(x) for x in suggested_sample_size]))
     # print("  Groups:")
     # for idx, group in enumerate(groups):

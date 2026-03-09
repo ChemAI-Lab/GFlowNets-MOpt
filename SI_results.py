@@ -3,6 +3,7 @@ from gflow_vqe.hamiltonians import *
 from gflow_vqe.gflow_utils import *
 from gflow_vqe.result_analysis import *
 from gflow_vqe.training import *
+from gflow_vqe.circuit_helpers import grouping_circuit_stats_tequila
 from openfermion import commutator
 import tequila as tq
 from tequila.hamiltonian import QubitHamiltonian
@@ -73,15 +74,23 @@ def print_equal_allocation_result(label, binary_hamiltonian, n_qubits, fci_wfn):
     commuting_parts = binary_hamiltonian.commuting_groups(options=options)[0]
     groups = build_openfermion_groups(commuting_parts)
     eps_sq_m = equal_allocation_metric(groups, fci_wfn, n_qubits)
+    two_qubit_gates = grouping_circuit_stats_tequila(
+        {idx: list(group.binary_terms) for idx, group in enumerate(commuting_parts)}
+    ).total_two_qubit_gates
     print("eps^2 M={} {}".format(_to_real_if_close(eps_sq_m), label))
     print("Number of groups {} {}".format(label, len(groups)))
+    print("Two-qubit gates required {} {}".format(label, two_qubit_gates))
 
 
 def print_optimal_allocation_result(label, options, binary_hamiltonian, fci_wfn):
     commuting_parts, suggested_sample_size = binary_hamiltonian.commuting_groups(options=options)
     measurement_metric = optimal_allocation_metric(commuting_parts, suggested_sample_size, fci_wfn)
+    two_qubit_gates = grouping_circuit_stats_tequila(
+        {idx: list(group.binary_terms) for idx, group in enumerate(commuting_parts)}
+    ).total_two_qubit_gates
     print("Required number of measurements={} {}".format(measurement_metric, label))
     print("Number of groups {} {}".format(label, len(commuting_parts)))
+    print("Two-qubit gates required {} {}".format(label, two_qubit_gates))
 
 
 def main():
