@@ -3,10 +3,10 @@ from gflow_vqe.hamiltonians import *
 from gflow_vqe.gflow_utils import *
 from gflow_vqe.result_analysis import *
 from gflow_vqe.training import *
+from gflow_vqe.overlapping_helpers import prepare_cov_dict
 from openfermion import commutator
 import tequila as tq
-from tequila.hamiltonian import QubitHamiltonian
-from tequila.grouping.binary_rep import BinaryHamiltonian, BinaryPauliString
+from tequila.grouping.binary_rep import BinaryHamiltonian
 
 
 def _to_real_if_close(value, tiny=1e-12):
@@ -33,25 +33,6 @@ def equal_allocation_metric(groups, wfn, n_qubits, tiny=1e-12):
             var = 0
         sqrt_var += math.sqrt(var)
     return sqrt_var ** 2
-
-
-def prepare_cov_dict(binary_hamiltonian, approx_wfn):
-    cov_dict = {}
-    reference_wfn = tq.QubitWaveFunction(approx_wfn)
-
-    for idx, term1 in enumerate(binary_hamiltonian.binary_terms):
-        for term2 in binary_hamiltonian.binary_terms[idx:]:
-            pauli_1 = BinaryPauliString(term1.get_binary(), 1.0)
-            pauli_2 = BinaryPauliString(term2.get_binary(), 1.0)
-            if not pauli_1.commute(pauli_2):
-                continue
-
-            op1 = QubitHamiltonian.from_paulistrings(pauli_1.to_pauli_strings())
-            op2 = QubitHamiltonian.from_paulistrings(pauli_2.to_pauli_strings())
-            covariance = reference_wfn.inner((op1 * op2)(reference_wfn)) - reference_wfn.inner(op1(reference_wfn)) * reference_wfn.inner(op2(reference_wfn))
-            cov_dict[(term1.binary_tuple(), term2.binary_tuple())] = covariance
-
-    return cov_dict
 
 
 def optimal_allocation_metric(commuting_parts, suggested_sample_size, fci_wfn, tiny=1e-12):

@@ -212,6 +212,13 @@ def _term_to_tequila_paulistring(term: Any) -> PauliString:
     if isinstance(term, PauliString):
         return term
 
+    to_pauli_strings = getattr(term, "to_pauli_strings", None)
+    if callable(to_pauli_strings):
+        converted = to_pauli_strings()
+        if isinstance(converted, PauliString):
+            return converted
+        term = converted
+
     pauli_ops = _pauli_dict_from_term(term)
     return PauliString(data=pauli_ops, coeff=_term_coefficient(term))
 
@@ -357,4 +364,3 @@ def sorted_insertion_circuit_stats_tequila(
 def get_groups_2qgates(graph: nx.Graph) -> int:
     """Return the total number of two-qubit gates Tequila uses for the graph's current grouping."""
     return grouping_circuit_stats_tequila(graph).total_two_qubit_gates
-

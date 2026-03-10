@@ -6,6 +6,7 @@ from gflow_vqe.circuit_helpers import (
     grouping_circuit_stats_tequila,
     sorted_insertion_circuit_stats_tequila,
 )
+from gflow_vqe.overlapping_helpers import prepare_cov_dict
 from gflow_vqe.utils import *
 from gflow_vqe.hamiltonians import parse_driver_args
 
@@ -44,6 +45,15 @@ def main() -> None:
     mol, H, Hferm, n_paulis, Hq = molecule()
     print("Number of Pauli products to measure: {}".format(n_paulis))
 
+    sparse_hamiltonian = get_sparse_operator(Hq)
+    energy, variance_wfn = get_variance_wavefunction(
+        mol,
+        Hq,
+        method=args.wfn,
+        sparse_hamiltonian=sparse_hamiltonian,
+    )
+    print("{} Energy={}".format(args.wfn, energy))
+
     binary_hamiltonian = BinaryHamiltonian.init_from_qubit_hamiltonian(H)
     terms = get_terms(binary_hamiltonian)
     comp_matrix = FC_CompMatrix(terms)
@@ -56,8 +66,19 @@ def main() -> None:
     color_stats = grouping_circuit_stats_tequila(graph)
     si_stats = sorted_insertion_circuit_stats_tequila(binary_hamiltonian, condition="fc")
 
+    cov_dict = prepare_cov_dict(binary_hamiltonian, variance_wfn)
+    tequila_ics_groups, tequila_ics_sample_size = binary_hamiltonian.commuting_groups(
+        options={"method": "ics", "condition": "fc", "cov_dict": cov_dict}
+    )
+    tequila_ics_grouping = {
+        color: list(group.binary_terms) for color, group in enumerate(tequila_ics_groups)
+    }
+    tequila_ics_stats = grouping_circuit_stats_tequila(tequila_ics_grouping)
+
     _print_circuit_stats("Greedy coloring grouping (Tequila compiled)", color_stats)
     _print_circuit_stats("Sorted insertion grouping (fc, Tequila compiled)", si_stats)
+    _print_circuit_stats("Tequila ICS grouping (fc, Tequila compiled)", tequila_ics_stats)
+    print("Tequila ICS suggested sample ratios={}".format([float(x) for x in tequila_ics_sample_size]))
     print("Circuit check completed.")
 
 

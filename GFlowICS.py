@@ -5,8 +5,7 @@ import networkx as nx
 import tequila as tq
 from openfermion.linalg import get_sparse_operator
 from openfermion.utils import count_qubits
-from tequila.grouping.binary_rep import BinaryHamiltonian, BinaryPauliString
-from tequila.hamiltonian import QubitHamiltonian
+from tequila.grouping.binary_rep import BinaryHamiltonian
 
 from gflow_vqe import hamiltonians as hamlib
 from gflow_vqe.overlapping_helpers import (
@@ -15,6 +14,7 @@ from gflow_vqe.overlapping_helpers import (
     groups_from_gflow_grouping,
     iterative_coefficient_splitting_from_gflow_grouping,
     iterative_coefficient_splitting_from_groups,
+    prepare_cov_dict,
 )
 from gflow_vqe.utils import (
     FC_CompMatrix,
@@ -59,25 +59,6 @@ def _to_real_if_close(value, tiny=1e-12):
     if hasattr(value, "imag") and abs(value.imag) < tiny:
         return float(value.real)
     return value
-
-
-def prepare_cov_dict(binary_hamiltonian, approx_wfn):
-    cov_dict = {}
-    reference_wfn = tq.QubitWaveFunction(approx_wfn)
-
-    for idx, term1 in enumerate(binary_hamiltonian.binary_terms):
-        for term2 in binary_hamiltonian.binary_terms[idx:]:
-            pauli_1 = BinaryPauliString(term1.get_binary(), 1.0)
-            pauli_2 = BinaryPauliString(term2.get_binary(), 1.0)
-            if not pauli_1.commute(pauli_2):
-                continue
-
-            op1 = QubitHamiltonian.from_paulistrings(pauli_1.to_pauli_strings())
-            op2 = QubitHamiltonian.from_paulistrings(pauli_2.to_pauli_strings())
-            covariance = reference_wfn.inner((op1 * op2)(reference_wfn)) - reference_wfn.inner(op1(reference_wfn)) * reference_wfn.inner(op2(reference_wfn))
-            cov_dict[(term1.binary_tuple(), term2.binary_tuple())] = covariance
-
-    return cov_dict
 
 
 def optimal_allocation_metric(commuting_parts, suggested_sample_size, wfn, tiny=1e-12):

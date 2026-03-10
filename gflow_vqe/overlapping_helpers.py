@@ -13,9 +13,37 @@ from typing import Any, Mapping, Sequence
 
 import networkx as nx
 import numpy as np
+import tequila as tq
 
-from tequila.grouping.binary_rep import BinaryHamiltonian
+from tequila.grouping.binary_rep import BinaryHamiltonian, BinaryPauliString
 from tequila.grouping.binary_utils import sorted_insertion_grouping, term_commutes_with_group
+from tequila.hamiltonian import QubitHamiltonian
+
+
+def prepare_cov_dict(binary_hamiltonian: BinaryHamiltonian, approx_wfn):
+    """
+    Build the covariance dictionary expected by Tequila overlapping methods (ICS).
+
+    Keys are ordered pairs of term binary tuples for commuting term pairs.
+    """
+    cov_dict = {}
+    reference_wfn = tq.QubitWaveFunction(approx_wfn)
+
+    for idx, term1 in enumerate(binary_hamiltonian.binary_terms):
+        for term2 in binary_hamiltonian.binary_terms[idx:]:
+            pauli_1 = BinaryPauliString(term1.get_binary(), 1.0)
+            pauli_2 = BinaryPauliString(term2.get_binary(), 1.0)
+            if not pauli_1.commute(pauli_2):
+                continue
+
+            op1 = QubitHamiltonian.from_paulistrings(pauli_1.to_pauli_strings())
+            op2 = QubitHamiltonian.from_paulistrings(pauli_2.to_pauli_strings())
+            covariance = reference_wfn.inner((op1 * op2)(reference_wfn)) - reference_wfn.inner(
+                op1(reference_wfn)
+            ) * reference_wfn.inner(op2(reference_wfn))
+            cov_dict[(term1.binary_tuple(), term2.binary_tuple())] = covariance
+
+    return cov_dict
 
 
 def _is_identity_term(term) -> bool:
