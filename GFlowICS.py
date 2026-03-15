@@ -2,13 +2,13 @@ import argparse
 import pickle
 
 import networkx as nx
-import tequila as tq
 from openfermion.linalg import get_sparse_operator
 from openfermion.utils import count_qubits
 from tequila.grouping.binary_rep import BinaryHamiltonian
 
 from gflow_vqe import hamiltonians as hamlib
 from gflow_vqe.overlapping_helpers import (
+    as_tequila_wavefunction,
     extract_measurable_terms,
     get_opt_sample_size,
     groups_from_gflow_grouping,
@@ -63,7 +63,7 @@ def _to_real_if_close(value, tiny=1e-12):
 
 def optimal_allocation_metric(commuting_parts, suggested_sample_size, wfn, tiny=1e-12):
     measurement_metric = 0
-    wf = tq.QubitWaveFunction(wfn)
+    wf = as_tequila_wavefunction(wfn)
 
     for idx, part in enumerate(commuting_parts):
         op = part.to_qubit_hamiltonian()

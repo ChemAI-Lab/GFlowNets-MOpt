@@ -20,6 +20,20 @@ from tequila.grouping.binary_utils import sorted_insertion_grouping, term_commut
 from tequila.hamiltonian import QubitHamiltonian
 
 
+def as_tequila_wavefunction(wfn):
+    """
+    Convert dense statevectors into Tequila wavefunctions in a version-safe way.
+    """
+    if isinstance(wfn, tq.QubitWaveFunction):
+        return wfn
+
+    array = np.asarray(wfn, dtype=complex)
+    if array.ndim != 1:
+        raise ValueError("Wavefunction array must be one-dimensional, got shape {}.".format(array.shape))
+
+    return tq.QubitWaveFunction.from_array(array)
+
+
 def prepare_cov_dict(binary_hamiltonian: BinaryHamiltonian, approx_wfn):
     """
     Build the covariance dictionary expected by Tequila overlapping methods (ICS).
@@ -27,7 +41,7 @@ def prepare_cov_dict(binary_hamiltonian: BinaryHamiltonian, approx_wfn):
     Keys are ordered pairs of term binary tuples for commuting term pairs.
     """
     cov_dict = {}
-    reference_wfn = tq.QubitWaveFunction(approx_wfn)
+    reference_wfn = as_tequila_wavefunction(approx_wfn)
 
     for idx, term1 in enumerate(binary_hamiltonian.binary_terms):
         for term2 in binary_hamiltonian.binary_terms[idx:]:

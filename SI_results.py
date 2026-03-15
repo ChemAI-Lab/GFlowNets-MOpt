@@ -3,9 +3,8 @@ from gflow_vqe.hamiltonians import *
 from gflow_vqe.gflow_utils import *
 from gflow_vqe.result_analysis import *
 from gflow_vqe.training import *
-from gflow_vqe.overlapping_helpers import prepare_cov_dict
+from gflow_vqe.overlapping_helpers import as_tequila_wavefunction, prepare_cov_dict
 from openfermion import commutator
-import tequila as tq
 from tequila.grouping.binary_rep import BinaryHamiltonian
 
 
@@ -37,7 +36,7 @@ def equal_allocation_metric(groups, wfn, n_qubits, tiny=1e-12):
 
 def optimal_allocation_metric(commuting_parts, suggested_sample_size, fci_wfn, tiny=1e-12):
     measurement_metric = 0
-    wf_fci = tq.QubitWaveFunction(fci_wfn)
+    wf_fci = as_tequila_wavefunction(fci_wfn)
 
     for idx, part in enumerate(commuting_parts):
         op = part.to_qubit_hamiltonian()
