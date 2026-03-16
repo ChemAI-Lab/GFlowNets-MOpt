@@ -408,6 +408,7 @@ def main(argv=None):
             markersize=8,
             linewidth=1.5,
             label="Pareto front",
+            zorder=3,
         )
 
     si_x, si_y = metric_point(si_metrics, args.y_axis)
@@ -419,6 +420,7 @@ def main(argv=None):
         markersize=7,
         linestyle="None",
         label="SI",
+        zorder=5,
     )
 
     point_label_used = False
@@ -431,16 +433,17 @@ def main(argv=None):
             linestyle=":",
             linewidth=1.2,
             label=None,
+            zorder=1,
         )
         g.ax_joint.plot(
             si_ics_x,
             si_ics_y,
-            marker="D",
-            color="red",
-            markersize=7,
+            marker="*",
+            color="#cc7a00",
+            markersize=10,
             linestyle="None",
-            alpha=0.6,
             label="SI-ICS",
+            zorder=5,
         )
 
         for result in pareto_ics_results:
@@ -451,17 +454,19 @@ def main(argv=None):
                 [before_y, after_y],
                 color="black",
                 linestyle=":",
-                linewidth=1.0,
+                linewidth=2.0,
                 label=None,
+                zorder=1,
             )
             g.ax_joint.plot(
                 after_x,
                 after_y,
                 marker="^",
                 color="#4b2e83",
-                markersize=6,
+                markersize=8,
                 linestyle="None",
                 label=None if point_label_used else "GFN-ICS",
+                zorder=5,
             )
             point_label_used = True
 
