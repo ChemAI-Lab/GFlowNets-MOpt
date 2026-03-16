@@ -67,6 +67,11 @@ def parse_args(argv=None):
         help="Also compute and plot ICS results starting from each Pareto-front GFlowNet graph and from SI.",
     )
     parser.add_argument(
+        "--qwc",
+        action="store_true",
+        help="Use qubit-wise commuting groupings for SI/ICS instead of fully commuting groupings.",
+    )
+    parser.add_argument(
         "--save",
         nargs="?",
         const=True,
@@ -273,7 +278,7 @@ def custom_reward_from_cached_metrics(graph, measurement, num_groups, two_qubit_
     return float(reward)
 
 
-def save_top_graphs(fig_name, sampled_graphs, metrics, n_save, l0, l1, l2):
+def save_top_graphs(fig_name, sampled_graphs, metrics, n_save, l0, l1, l2, compute_ics=False, binary_hamiltonian=None, cov_dict=None, variance_wfn=None, grouping_condition="fc"):
     scored_graphs = []
     for idx, graph in enumerate(sampled_graphs):
         reward = custom_reward_from_cached_metrics(
@@ -310,6 +315,19 @@ def save_top_graphs(fig_name, sampled_graphs, metrics, n_save, l0, l1, l2):
         }
         print("  [{}] reward={:.10g}, {}".format(rank, reward, format_metric_triplet(metric_dict)))
 
+        if compute_ics:
+            if any(value is None for value in (binary_hamiltonian, cov_dict, variance_wfn)):
+                raise ValueError("ICS reporting for saved graphs requires the Hamiltonian, covariance data, and wavefunction.")
+
+            gflow_ics_groups, _ = iterative_coefficient_splitting_from_gflow_grouping(
+                binary_hamiltonian,
+                sampled_graphs[idx],
+                cov_dict,
+                condition=grouping_condition,
+            )
+            ics_metric_dict = compute_group_metrics(gflow_ics_groups, cov_dict, variance_wfn)
+            print("      After  ICS: {}".format(format_metric_triplet(ics_metric_dict)))
+
 
 def make_output_path(fig_name, y_axis):
     if y_axis == "groups":
@@ -330,9 +348,6 @@ def main(argv=None):
     print("Loaded {} valid sampled graphs from {}".format(len(sampled_graphs), sampled_graphs_path))
     print("Loaded metrics from {}".format(metrics_path))
 
-    if args.save:
-        save_top_graphs(fig_name, sampled_graphs, metrics, args.n_save, args.l0, args.l1, args.l2)
-
     mol, H, _, n_paulis, Hq = args.func()
     print("Number of Pauli products to measure: {}".format(n_paulis))
 
@@ -340,9 +355,27 @@ def main(argv=None):
     _, variance_wfn = get_variance_wavefunction(mol, Hq, method=args.wfn, sparse_hamiltonian=sparse_hamiltonian)
     binary_hamiltonian = BinaryHamiltonian.init_from_qubit_hamiltonian(H)
     cov_dict = prepare_cov_dict(binary_hamiltonian, variance_wfn)
+    grouping_condition = "qwc" if args.qwc else "fc"
+    print("Using {} groupings for SI/ICS.".format("QWC" if args.qwc else "fully commuting"))
+
+    if args.save:
+        save_top_graphs(
+            fig_name,
+            sampled_graphs,
+            metrics,
+            args.n_save,
+            args.l0,
+            args.l1,
+            args.l2,
+            compute_ics=args.ics,
+            binary_hamiltonian=binary_hamiltonian,
+            cov_dict=cov_dict,
+            variance_wfn=variance_wfn,
+            grouping_condition=grouping_condition,
+        )
 
     si_groups, _ = binary_hamiltonian.commuting_groups(
-        options={"method": "si", "condition": "fc", "cov_dict": cov_dict}
+        options={"method": "si", "condition": grouping_condition, "cov_dict": cov_dict}
     )
     si_metrics = compute_group_metrics(si_groups, cov_dict, variance_wfn)
 
@@ -363,7 +396,11 @@ def main(argv=None):
     si_ics_metrics = None
     pareto_ics_results = []
     if args.ics:
-        si_ics_groups, _ = iterative_coefficient_splitting_from_groups(si_groups, cov_dict, condition="fc")
+        si_ics_groups, _ = iterative_coefficient_splitting_from_groups(
+            si_groups,
+            cov_dict,
+            condition=grouping_condition,
+        )
         si_ics_metrics = compute_group_metrics(si_ics_groups, cov_dict, variance_wfn)
 
         print("  After  ICS: {}".format(format_metric_triplet(si_ics_metrics)))
@@ -379,7 +416,7 @@ def main(argv=None):
                 binary_hamiltonian,
                 sampled_graphs[graph_idx],
                 cov_dict,
-                condition="fc",
+                condition=grouping_condition,
             )
             after_metrics = compute_group_metrics(gflow_ics_groups, cov_dict, variance_wfn)
             pareto_ics_results.append(
@@ -504,7 +541,10 @@ def main(argv=None):
 
     g.ax_joint.legend(loc="best")
     g.figure.savefig(output_path, format="svg", dpi=600, bbox_inches="tight")
+    png_output_path = output_path[:-4] + ".png"
+    g.figure.savefig(png_output_path, format="png", dpi=300, bbox_inches="tight")
     print("Saved Pareto plot to {}".format(output_path))
+    print("Saved Pareto plot to {}".format(png_output_path))
 
 
 if __name__ == "__main__":
