@@ -48,8 +48,10 @@ def optimal_allocation_metric(commuting_parts, suggested_sample_size, fci_wfn, t
     return _to_real_if_close(measurement_metric, tiny=tiny)
 
 
-def print_equal_allocation_result(label, binary_hamiltonian, n_qubits, fci_wfn):
-    options = {"method": "si", "condition": label.lower()}
+def print_equal_allocation_result(label, binary_hamiltonian, n_qubits, fci_wfn, method="si", condition=None):
+    if condition is None:
+        condition = label.lower()
+    options = {"method": method, "condition": condition}
     commuting_parts = binary_hamiltonian.commuting_groups(options=options)[0]
     groups = build_openfermion_groups(commuting_parts)
     eps_sq_m = equal_allocation_metric(groups, fci_wfn, n_qubits)
@@ -88,6 +90,7 @@ def main():
 
     print_equal_allocation_result("FC", binary_hamiltonian, n_q, fci_wfn)
     print_equal_allocation_result("QWC", binary_hamiltonian, n_q, fci_wfn)
+    print_equal_allocation_result("RLF", binary_hamiltonian, n_q, fci_wfn, method="rlf", condition="qwc")
 
     cov_dict = prepare_cov_dict(binary_hamiltonian, fci_wfn)
 
