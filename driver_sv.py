@@ -14,7 +14,7 @@ print("Training device={}".format(device))
 
 # Optional checkpoint resume.
 # Set to a .pth path (state-vector or matching older non-statevector GNN TB model checkpoint).
-RESUME_CHECKPOINT = "H4_ginTBmodel.pth"
+RESUME_CHECKPOINT = None #"H4_statevec_ginTBmodel.pth"
 # If True, n_episodes means "additional episodes" after the checkpoint epoch.
 # If False, n_episodes is treated as the absolute final episode count.
 RESUME_ADDITIONAL_EPISODES = globals().get("RESUME_ADDITIONAL_EPISODES", True)
