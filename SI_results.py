@@ -90,7 +90,7 @@ def main():
 
     print_equal_allocation_result("FC", binary_hamiltonian, n_q, fci_wfn)
     print_equal_allocation_result("QWC", binary_hamiltonian, n_q, fci_wfn)
-    print_equal_allocation_result("RLF", binary_hamiltonian, n_q, fci_wfn, method="rlf", condition="qwc")
+    print_equal_allocation_result("RLF", binary_hamiltonian, n_q, fci_wfn, method="rlf", condition="fc")
 
     cov_dict = prepare_cov_dict(binary_hamiltonian, fci_wfn)
 
