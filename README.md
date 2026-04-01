@@ -50,6 +50,7 @@ For the results of the paper ***"Discrete Flow-Based Generative Models for Measu
 - ***GIN_TB_training*** corresponding to the $\texttt{GINE}$ model described in the text.
 - ***coeff_GIN_TB_training*** corresponding to the $\texttt{GINE}_{w}$ model described in the text.
 - ***coeff_GIN_TB_training_custom_reward***
+- ***coeff_GIN_TB_training_custom_reward_state_vector*** which is a more efficient version and should be used in this library. This version is available in `driver_sv.py`.
 
 All of them are using the `my_reward` or `custom_reward` reward functions. In the current implementation, `custom_reward` can mix measurement information, color reward, and Tequila-based two-qubit gate counts through the parameters `l0`, `l1`, and `l2`. The upper bound for the search space is generated through a greedy coloring algorithm with a random sequential strategy and increased by +2
 
