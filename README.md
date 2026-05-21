@@ -106,8 +106,6 @@ Where molecule can be $H_2$, $H_4$, $LiH$, $BeH_2$, $H_2O$, $N_2$. The default b
 On driver.py, we can change parameters for GFlowNets like:
 `fig_name`, Training rate, number of `hid_uinits`, number of episodes, embedding dimension, `update_freq` and the random seed. We leave options for GPU usage, although we saw no real benefit. 
 
-Experimental! Parallel training implemented, we have multiple models (1/process) in the para driver and single-model versions where the updates occur on each processor or by collecting the results and updating outside the sampling parallel loop.
-
 To compare sorted insertion, Tequila ICS, and ICS initialized from a GFlowNet-compatible grouping, use:
 
 ```bash
@@ -181,6 +179,7 @@ The `scripts/` folder contains some useful programs for post-processing, plottin
 - `SI_results.py`: prints measurement/allocation summaries for FC, QWC, RLF, SI-optimal allocation, and ICS.
 - `GFlowICS.py`: compares Tequila sorted insertion and ICS against ICS initialized from GFlowNet-compatible groups.
 - `wfn_variance_check.py`: checks how `\epsilon^2 M(x)` changes with different variance wavefunctions (`FCI`, `HF`, `CISD`).
+- `diversity_eval_para.py`: does a candidate set diversity analysis in parallel for initialization of ICS through GFlowNets generated non-overlapping groupings. Tailored for use in the composite reward results from the paper. 
 
 ### Debugging functions
 
