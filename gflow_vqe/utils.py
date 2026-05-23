@@ -54,6 +54,27 @@ def _occupations_to_basis_index(occupations):
     return index
 
 
+def _occupations_to_sparse_basis_index(occupations):
+    """Convert qubit occupations into the basis index used by OpenFermion sparse operators."""
+    index = 0
+    n_qubits = len(occupations)
+    for q, occ in enumerate(occupations):
+        if int(occ):
+            index |= (1 << (n_qubits - 1 - q))
+    return index
+
+
+def _alpha_beta_reordering_phase(alpha_occ, beta_occ, ordering):
+    """Phase from PySCF alpha-block/beta-block determinants to spin-orbital order."""
+    if ordering == "blocked":
+        return 1.0
+    if ordering != "interleaved":
+        raise ValueError("Unknown spin-orbital ordering '{}'".format(ordering))
+
+    inversions = sum(1 for beta_orbital in beta_occ for alpha_orbital in alpha_occ if alpha_orbital > beta_orbital)
+    return -1.0 if inversions % 2 else 1.0
+
+
 def _occupations_to_statevector(occupations):
     """Create a computational basis statevector from a binary occupation list."""
     import numpy as onp
@@ -181,7 +202,8 @@ def get_cisd_qubit_statevector(mol, tiny=1e-12):
             beta_occ = [p for p in range(n_spatial_orbitals) if (int(b_string) >> p) & 1]
             spin_occ = _build_spin_occupation(alpha_occ, beta_occ, n_spatial_orbitals, ordering)
             qubit_occ = _map_spin_state_to_qubits(mol, spin_occ)
-            state[_occupations_to_basis_index(qubit_occ)] += coeff
+            phase = _alpha_beta_reordering_phase(alpha_occ, beta_occ, ordering)
+            state[_occupations_to_sparse_basis_index(qubit_occ)] += phase * coeff
 
     norm = onp.linalg.norm(state)
     if norm < tiny:
