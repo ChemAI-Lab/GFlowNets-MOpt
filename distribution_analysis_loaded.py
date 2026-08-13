@@ -37,9 +37,12 @@ a separate histogram-only companion for every base plot. The bars use common
 adaptive bin edges in multi-molecule figures. Combined KDE-and-bar filenames
 end in ``_bars``; histogram-only filenames end in ``_bars_only``.
 Relative-density (unit-peak) plots never contain bars or receive histogram-only
-companions. Every nonsingular KDE is filled with a translucent version of its
-curve color. In comparisons, a molecule keeps the same Seaborn
-colorblind-palette color across every base, histogram-only, and unit-peak plot.
+companions. Standalone histogram bars use the same fill intensity as KDE
+areas; combined-plot bars remain lighter. In comparisons, a molecule keeps the
+same Seaborn colorblind-palette color across every base, histogram-only, and
+unit-peak plot. Use ``--no-grid`` for a clean ticks-style version of every
+figure: interior gridlines and the zero-reference line are omitted, top/right
+spines and ticks are removed, and bottom/left tick marks point outward.
 """
 
 from __future__ import annotations
@@ -85,6 +88,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 import tequila as tq
+from matplotlib.patches import Patch
 from openfermion import FermionOperator, QubitOperator
 from openfermion.linalg import get_ground_state, get_sparse_operator
 from openfermion.transforms import bravyi_kitaev
@@ -304,7 +308,17 @@ def parse_args(argv=None):
             "plots and save a separate histogram-only '_bars_only' companion "
             "for each. Multi-molecule plots use common adaptive bin edges. "
             "Relative-density/unit-peak plots never show bars or receive "
-            "histogram-only companions."
+            "histogram-only companions. Standalone bars use the same fill "
+            "intensity as KDE areas; combined-plot bars remain lighter."
+        ),
+    )
+    parser.add_argument(
+        "--no-grid",
+        action="store_true",
+        help=(
+            "Use clean ticks-style axes for every plot: hide interior "
+            "gridlines and the zero-reference line, remove top/right spines "
+            "and ticks, and point bottom/left ticks outward."
         ),
     )
     parser.add_argument(
@@ -1042,6 +1056,24 @@ def distribution_color_map(distributions):
     return dict(zip(molecule_names, palette))
 
 
+def apply_no_grid_axis_style(axis):
+    """Apply clean outward ticks and left/bottom spines to one axis."""
+
+    axis.grid(False)
+    axis.tick_params(
+        axis="both",
+        which="both",
+        direction="out",
+        bottom=True,
+        left=True,
+        top=False,
+        right=False,
+    )
+    axis.xaxis.set_ticks_position("bottom")
+    axis.yaxis.set_ticks_position("left")
+    sns.despine(ax=axis, top=True, right=True, left=False, bottom=False)
+
+
 def plot_distributions(
     distributions,
     attribute,
@@ -1053,6 +1085,7 @@ def plot_distributions(
     peak_normalized=False,
     show_bars=False,
     colors_by_name=None,
+    no_grid=False,
 ):
     """Overlay filled KDEs and optional base-density bars, then save."""
 
@@ -1062,7 +1095,7 @@ def plot_distributions(
     # even for direct API callers that pass both flags.
     show_bars = bool(show_bars and not peak_normalized)
 
-    sns.set_theme(style="whitegrid", context="talk")
+    sns.set_theme(style="ticks" if no_grid else "whitegrid", context="talk")
     figure, axis = plt.subplots(figsize=(10.5, 6.5))
     if colors_by_name is None:
         colors_by_name = distribution_color_map(distributions)
@@ -1199,7 +1232,8 @@ def plot_distributions(
                 zorder=1,
             )
 
-    axis.axvline(0.0, color="black", linewidth=0.9, alpha=0.45)
+    if not no_grid:
+        axis.axvline(0.0, color="black", linewidth=0.9, alpha=0.45)
     if not any_samples:
         axis.text(
             0.5,
@@ -1217,6 +1251,8 @@ def plot_distributions(
         axis.set_ylabel("Relative density")
     else:
         axis.set_ylabel("Probability density")
+    if no_grid:
+        apply_no_grid_axis_style(axis)
     axis.legend(title="Molecule", frameon=True)
     figure.tight_layout()
     output_stem = output_path.with_suffix("") if output_path.suffix else output_path
@@ -1245,11 +1281,12 @@ def plot_histogram_only(
     dpi,
     fixed_xlim=None,
     colors_by_name=None,
+    no_grid=False,
 ):
     """Overlay probability-density histograms and save both formats."""
 
     output_path = Path(output_path)
-    sns.set_theme(style="whitegrid", context="talk")
+    sns.set_theme(style="ticks" if no_grid else "whitegrid", context="talk")
     figure, axis = plt.subplots(figsize=(10.5, 6.5))
     if colors_by_name is None:
         colors_by_name = distribution_color_map(distributions)
@@ -1258,13 +1295,10 @@ def plot_histogram_only(
         attribute,
         fixed_xlim=fixed_xlim,
     )
-    histogram_alpha = (
-        HISTOGRAM_SINGLE_ALPHA
-        if len(distributions) == 1
-        else HISTOGRAM_MULTI_ALPHA
-    )
+    histogram_alpha = KDE_FILL_ALPHA
 
     any_samples = False
+    legend_handles = []
     for distribution in distributions:
         try:
             color = colors_by_name[distribution.name]
@@ -1277,17 +1311,25 @@ def plot_histogram_only(
         values = np.asarray(getattr(distribution, attribute), dtype=float)
         label = "{} (n={:,})".format(distribution.name, values.size)
         if values.size == 0:
-            axis.bar(
-                [],
-                [],
-                color=color,
-                edgecolor=color,
-                alpha=histogram_alpha,
-                label=label + "; undefined",
+            legend_handles.append(
+                Patch(
+                    facecolor=color,
+                    edgecolor=color,
+                    alpha=histogram_alpha,
+                    label=label + "; undefined",
+                )
             )
             continue
 
         any_samples = True
+        legend_handles.append(
+            Patch(
+                facecolor=color,
+                edgecolor=color,
+                alpha=histogram_alpha,
+                label=label,
+            )
+        )
         bar_heights = histogram_density(values, histogram_bin_edges)
         axis.bar(
             histogram_bin_edges[:-1],
@@ -1298,11 +1340,12 @@ def plot_histogram_only(
             edgecolor=color,
             linewidth=0.45,
             alpha=histogram_alpha,
-            label=label,
+            label="_nolegend_",
             zorder=1,
         )
 
-    axis.axvline(0.0, color="black", linewidth=0.9, alpha=0.45)
+    if not no_grid:
+        axis.axvline(0.0, color="black", linewidth=0.9, alpha=0.45)
     if not any_samples:
         axis.text(
             0.5,
@@ -1317,7 +1360,9 @@ def plot_histogram_only(
     axis.set_ylim(bottom=0.0)
     axis.set_xlabel(x_label)
     axis.set_ylabel("Probability density")
-    axis.legend(title="Molecule", frameon=True)
+    if no_grid:
+        apply_no_grid_axis_style(axis)
+    axis.legend(handles=legend_handles, title="Molecule", frameon=True)
     figure.tight_layout()
     output_stem = output_path.with_suffix("") if output_path.suffix else output_path
     output_paths = (
@@ -1340,6 +1385,7 @@ def plot_histogram_only(
 def make_all_plots(distributions, args):
     args.output_dir.mkdir(parents=True, exist_ok=True)
     colors_by_name = distribution_color_map(distributions)
+    no_grid = bool(getattr(args, "no_grid", False))
     prefix = comparison_prefix([item.name for item in distributions])
     if args.off_diagonal_only:
         prefix += "_offdiag"
@@ -1418,6 +1464,7 @@ def make_all_plots(distributions, args):
             fixed_xlim=fixed_xlim,
             show_bars=args.bars,
             colors_by_name=colors_by_name,
+            no_grid=no_grid,
         )
         paths[key] = png_path
         paths["{}_svg".format(key)] = svg_path
@@ -1434,6 +1481,7 @@ def make_all_plots(distributions, args):
                 args.dpi,
                 fixed_xlim=fixed_xlim,
                 colors_by_name=colors_by_name,
+                no_grid=no_grid,
             )
             bars_only_key = "{}_bars_only".format(key)
             paths[bars_only_key] = bars_only_png_path
@@ -1457,6 +1505,7 @@ def make_all_plots(distributions, args):
                 peak_normalized=True,
                 show_bars=False,
                 colors_by_name=colors_by_name,
+                no_grid=no_grid,
             )
             paths[peak_key] = png_path
             paths["{}_svg".format(peak_key)] = svg_path
@@ -1497,11 +1546,19 @@ def main(argv=None):
         "Histogram bars={}".format(
             "enabled for probability-density plots as combined KDE-and-bar "
             "and separate histogram-only outputs (common adaptive bins, "
-            "at most {}; density-scaled)".format(
-                HISTOGRAM_MAX_BINS
+            "at most {}; density-scaled; standalone alpha={:.2f})".format(
+                HISTOGRAM_MAX_BINS,
+                KDE_FILL_ALPHA,
             )
             if args.bars
             else "disabled"
+        )
+    )
+    print(
+        "Plot axes={}".format(
+            "clean outward ticks on bottom/left; no grid or zero-reference line"
+            if args.no_grid
+            else "whitegrid with zero-reference line"
         )
     )
     print(
