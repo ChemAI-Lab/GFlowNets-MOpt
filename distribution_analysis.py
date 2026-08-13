@@ -1,8 +1,8 @@
 """Compare Pauli-coefficient and covariance distributions across molecules.
 
-For each requested Jordan-Wigner Hamiltonian, this script constructs the
-selected reference wavefunction and the coefficient-free Pauli covariance
-dictionary
+For each requested Jordan-Wigner or Bravyi-Kitaev Hamiltonian, this script
+constructs the selected reference wavefunction and the coefficient-free Pauli
+covariance dictionary
 
     C_ij = <P_i P_j> - <P_i><P_j>
 
@@ -23,6 +23,7 @@ import math
 import os
 import re
 import time
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -56,17 +57,14 @@ configure_plotting_environment()
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+import tequila as tq
+from openfermion import QubitOperator
 from openfermion.linalg import get_sparse_operator
 from openfermion.utils import count_qubits
+from tequila.hamiltonian import QubitHamiltonian
 
 import gflow_vqe.hamiltonians as hamlib
 from gflow_vqe.utils import get_variance_wavefunction
-from greedy import (
-    JW_SYSTEM_NAMES,
-    build_covariance_dictionary,
-    default_cov_workers,
-    make_terms,
-)
 
 
 DEFAULT_OUTPUT_DIRECTORY = "distribution_analysis_plots"
@@ -75,6 +73,49 @@ DEFAULT_COVARIANCE_CHUNKSIZE = 128
 DEFAULT_MAX_MEMORY_GIB = 8.0
 REAL_TOLERANCE = 1.0e-9
 ZERO_VARIANCE_TOLERANCE = 1.0e-12
+JW_SYSTEM_NAMES = (
+    "H2",
+    "LiH",
+    "MgO",
+    "SiO",
+    "N2",
+    "H4",
+    "H6",
+    "BeH2",
+    "H2O",
+    "H2Os",
+    "NH3",
+)
+BK_SYSTEM_NAMES = (
+    "H2bk",
+    "LiHbk",
+    "N2bk",
+    "H4bk",
+    "H6bk",
+    "BeH2bk",
+    "H2Obk",
+    "NH3bk",
+)
+SYSTEM_NAMES = JW_SYSTEM_NAMES + BK_SYSTEM_NAMES
+
+
+@dataclass(frozen=True)
+class PauliTerm:
+    index: int
+    pauli_tuple: tuple[tuple[int, str], ...]
+    ops: tuple[str, ...]
+    coefficient: complex
+    word: str
+    source_order: int
+
+
+_ACTION_STATE = None
+_ACTION_N_QUBITS = None
+_ACTION_TERMS = None
+
+
+def default_cov_workers():
+    return max(1, min(8, os.cpu_count() or 1))
 
 
 @dataclass
@@ -102,10 +143,11 @@ def parse_args(argv=None):
     parser.add_argument(
         "molecules",
         nargs="+",
-        choices=JW_SYSTEM_NAMES,
+        choices=SYSTEM_NAMES,
         help=(
-            "One or more Jordan-Wigner molecule helpers. Multiple molecules "
-            "are overlaid in each output figure."
+            "One or more Jordan-Wigner or Bravyi-Kitaev molecule helpers. "
+            "BK helper names end in 'bk'. Multiple molecules are overlaid "
+            "in each output figure."
         ),
     )
     parser.add_argument(
@@ -194,6 +236,198 @@ def parse_args(argv=None):
     if args.max_memory_gib < 0.0:
         parser.error("--max-memory-gib cannot be negative.")
     return args
+
+
+def clean_complex(value, tiny=1.0e-12):
+    """Discard only negligible imaginary roundoff from Pauli moments."""
+
+    value = complex(value)
+    imaginary = 0.0 if abs(value.imag) < tiny else value.imag
+    return complex(value.real, imaginary)
+
+
+def pauli_word(pauli_tuple):
+    if not pauli_tuple:
+        return "I"
+    return " ".join(
+        "{}{}".format(pauli, qubit) for qubit, pauli in pauli_tuple
+    )
+
+
+def make_terms(qubit_operator, n_qubits):
+    """Convert an OpenFermion QubitOperator into canonical Pauli terms."""
+
+    source_items = list(qubit_operator.terms.items())
+    source_order = {
+        pauli_tuple: position
+        for position, (pauli_tuple, _) in enumerate(source_items)
+    }
+    items = sorted(source_items, key=lambda item: (bool(item[0]), item[0]))
+    terms = []
+    for index, (pauli_tuple_value, coefficient) in enumerate(items):
+        pauli_tuple_value = tuple(
+            (int(qubit), str(pauli)) for qubit, pauli in pauli_tuple_value
+        )
+        pauli_by_qubit = dict(pauli_tuple_value)
+        terms.append(
+            PauliTerm(
+                index=index,
+                pauli_tuple=pauli_tuple_value,
+                ops=tuple(
+                    pauli_by_qubit.get(qubit, "I")
+                    for qubit in range(n_qubits)
+                ),
+                coefficient=clean_complex(coefficient),
+                word=pauli_word(pauli_tuple_value),
+                source_order=source_order[pauli_tuple_value],
+            )
+        )
+    return terms
+
+
+def terms_fully_commute(term1, term2):
+    anticommutes = sum(
+        op1 != "I" and op2 != "I" and op1 != op2
+        for op1, op2 in zip(term1.ops, term2.ops)
+    )
+    return anticommutes % 2 == 0
+
+
+def tequila_wavefunction_from_array(state_vector):
+    return tq.QubitWaveFunction.from_array(
+        np.asarray(state_vector, dtype=complex)
+    )
+
+
+def pauli_hamiltonian_for_term(term):
+    return QubitHamiltonian.from_openfermion(
+        QubitOperator(term.pauli_tuple, 1.0)
+    )
+
+
+def wavefunction_array(wfn, dimension):
+    array = np.asarray(wfn.to_array(), dtype=complex).reshape(-1)
+    if array.size != dimension:
+        raise ValueError(
+            "Expected wavefunction array of size {}, got {}.".format(
+                dimension,
+                array.size,
+            )
+        )
+    return array
+
+
+def action_row_for_term(term, reference_wfn, dimension):
+    return wavefunction_array(
+        pauli_hamiltonian_for_term(term)(reference_wfn),
+        dimension,
+    )
+
+
+def _init_action_worker(state_vector, n_qubits, terms):
+    global _ACTION_STATE
+    global _ACTION_N_QUBITS
+    global _ACTION_TERMS
+    _ACTION_STATE = tequila_wavefunction_from_array(state_vector)
+    _ACTION_N_QUBITS = int(n_qubits)
+    _ACTION_TERMS = list(terms)
+
+
+def _action_rows_chunk(term_positions):
+    dimension = 2**_ACTION_N_QUBITS
+    return [
+        (
+            position,
+            action_row_for_term(
+                _ACTION_TERMS[position],
+                _ACTION_STATE,
+                dimension,
+            ),
+        )
+        for position in term_positions
+    ]
+
+
+def iter_index_chunks(n_items, chunksize):
+    for start in range(0, n_items, chunksize):
+        yield list(range(start, min(start + chunksize, n_items)))
+
+
+def build_action_matrix(terms, state_vector, n_qubits, max_workers, chunksize):
+    """Apply every unit-coefficient Pauli word to the reference state once."""
+
+    dimension = 2**n_qubits
+    state_vector = np.asarray(state_vector, dtype=complex).reshape(-1)
+    if state_vector.size != dimension:
+        raise ValueError(
+            "Expected statevector size {}, got {}.".format(
+                dimension,
+                state_vector.size,
+            )
+        )
+
+    actions = np.empty((len(terms), dimension), dtype=complex)
+    if max_workers == 1:
+        reference_wfn = tequila_wavefunction_from_array(state_vector)
+        for position, term in enumerate(terms):
+            actions[position] = action_row_for_term(
+                term,
+                reference_wfn,
+                dimension,
+            )
+        return actions
+
+    automatic_chunksize = max(1, math.ceil(len(terms) / (4 * max_workers)))
+    task_chunksize = min(chunksize, automatic_chunksize)
+    with ProcessPoolExecutor(
+        max_workers=max_workers,
+        initializer=_init_action_worker,
+        initargs=(state_vector, n_qubits, terms),
+    ) as executor:
+        chunks = iter_index_chunks(len(terms), task_chunksize)
+        for chunk_rows in executor.map(_action_rows_chunk, chunks):
+            for position, row in chunk_rows:
+                actions[position] = row
+    return actions
+
+
+def build_covariance_dictionary(
+    terms,
+    state_vector,
+    n_qubits,
+    max_workers,
+    chunksize,
+):
+    """Build coefficient-free covariances from one Pauli-action matrix."""
+
+    state_vector = np.asarray(state_vector, dtype=complex).reshape(-1)
+    actions = build_action_matrix(
+        terms,
+        state_vector,
+        n_qubits,
+        max_workers,
+        chunksize,
+    )
+    single_values = actions.dot(state_vector.conjugate())
+    gram = actions.conjugate().dot(actions.T)
+    single_expectations = {
+        term.index: clean_complex(single_values[position])
+        for position, term in enumerate(terms)
+    }
+
+    covariances = {}
+    for left_position, left in enumerate(terms):
+        for right_position in range(left_position, len(terms)):
+            right = terms[right_position]
+            if not terms_fully_commute(left, right):
+                continue
+            covariance = clean_complex(
+                gram[left_position, right_position]
+                - single_expectations[left.index]
+                * single_expectations[right.index]
+            )
+            covariances[(left.index, right.index)] = covariance
+    return covariances, single_expectations
 
 
 def real_scalar(value, label, tolerance=REAL_TOLERANCE):
@@ -340,7 +574,11 @@ def analyze_molecule(name, args):
         raise ValueError("Unknown molecule helper '{}'.".format(name))
 
     print("")
-    print("Building {} Jordan-Wigner Hamiltonian...".format(name), flush=True)
+    mapping = "Bravyi-Kitaev" if name in BK_SYSTEM_NAMES else "Jordan-Wigner"
+    print(
+        "Building {} {} Hamiltonian...".format(name, mapping),
+        flush=True,
+    )
     molecule, _, _, reported_n_paulis, qubit_operator = helper()
     n_qubits = int(count_qubits(qubit_operator))
     terms = make_terms(qubit_operator, n_qubits)
