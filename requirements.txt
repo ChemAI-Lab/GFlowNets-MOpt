@@ -48,6 +48,7 @@ pytz==2025.2+computecanada
 requests==2.32.4+computecanada
 rustworkx==0.16.0+computecanada
 scipy==1.15.1+computecanada
+seaborn==0.13.2
 six==1.17.0+computecanada
 sortedcontainers==2.4.0+computecanada
 sympy==1.14.0+computecanada

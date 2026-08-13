@@ -28,6 +28,7 @@ setup(
         "openfermion",
         "PennyLane",
         "pyscf",
+        "seaborn",
         "tequila-basic",
         "torch",
         "torch-geometric",

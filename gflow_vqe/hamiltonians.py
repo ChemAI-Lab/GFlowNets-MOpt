@@ -5,6 +5,7 @@ from tequila.hamiltonian import QubitHamiltonian, paulis
 from tequila.grouping.binary_rep import BinaryHamiltonian
 from tequila.grouping import *
 import argparse
+import math
 import pickle
 
 _SUPPORTED_WFN_CHOICES = ("FCI", "HF", "CISD")
@@ -187,9 +188,18 @@ def H2Os():
     '''
     Return a test hamiltonian.
     '''
+    r = 1.5
+    theta = math.radians(107.6)
+    x = r * math.sin(theta / 2.0)
+    z = r * math.cos(theta / 2.0)
+    geometry = (
+        "O 0.0 0.0 0.0 \n "
+        "H {:.10f} 0.0 {:.10f} \n "
+        "H {:.10f} 0.0 {:.10f}"
+    ).format(x, z, -x, z)
     trafo = "JordanWigner"
     mol = tq.chemistry.Molecule(
-                            geometry="O 0.0 0.0 0.0 \n H 1.7753126867 0.0 1.2993324688 \n H -1.7753126867 0.0 1.2993324688",
+                            geometry=geometry,
                             basis_set="sto3g",
                             transformation=trafo,
                             backend='pyscf'
