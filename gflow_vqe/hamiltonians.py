@@ -71,6 +71,38 @@ def LiH():
     Hferm = reverse_jordan_wigner(Hq)
     return mol, H, Hferm, len(Hq.terms) - 1, Hq #Minus 1 since it always contain a constant term that we don't need to measure.
 
+def MgO():
+    '''
+    Return a test hamiltonian.
+    '''
+    trafo = "JordanWigner"
+    mol = tq.chemistry.Molecule(
+                            geometry="Mg 0.0 0.0 0.0 \n O 0.0 0.0 1.75",
+                            basis_set="sto3g",
+                            transformation=trafo,
+                            backend='pyscf'
+                                 )
+    H = mol.make_hamiltonian()
+    Hq = H.to_openfermion()
+    Hferm = reverse_jordan_wigner(Hq)
+    return mol, H, Hferm, len(Hq.terms) - 1, Hq #Minus 1 since it always contain a constant term that we don't need to measure.
+
+def SiO():
+    '''
+    Return a test hamiltonian.
+    '''
+    trafo = "JordanWigner"
+    mol = tq.chemistry.Molecule(
+                            geometry="Si 0.0 0.0 0.0 \n O 0.0 0.0 1.5",
+                            basis_set="sto3g",
+                            transformation=trafo,
+                            backend='pyscf'
+                                 )
+    H = mol.make_hamiltonian()
+    Hq = H.to_openfermion()
+    Hferm = reverse_jordan_wigner(Hq)
+    return mol, H, Hferm, len(Hq.terms) - 1, Hq #Minus 1 since it always contain a constant term that we don't need to measure.
+
 def N2():
     '''
     Return a test hamiltonian.
@@ -141,7 +173,7 @@ def H2O():
     '''
     trafo = "JordanWigner"
     mol = tq.chemistry.Molecule(
-                            geometry="O 0.0 0.0 0.0 \n H 0.0 -0.86295967 0.50527280 \n H 0.0 0.74255434 0.66978582 ",
+                            geometry="O 0.0 0.0 0.0 \n H 0.8069603121 0.0 0.5906056676 \n H -0.8069603121 0.0 0.5906056676",
                             basis_set="sto3g",
                             transformation=trafo,
                             backend='pyscf'
@@ -157,7 +189,7 @@ def H2Os():
     '''
     trafo = "JordanWigner"
     mol = tq.chemistry.Molecule(
-                            geometry="O 0.0 0.0 -0.1181211 \n H 0.0 -0.8069603 0.4724845 \n H 0.0 0.8069603 0.4724845",
+                            geometry="O 0.0 0.0 0.0 \n H 1.7753126867 0.0 1.2993324688 \n H -1.7753126867 0.0 1.2993324688",
                             basis_set="sto3g",
                             transformation=trafo,
                             backend='pyscf'
