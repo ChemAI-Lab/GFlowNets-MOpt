@@ -8,9 +8,11 @@ After cloning, install the package as:
 pip install -e .
 ```
 
-Before you run make sure to have the proper packages installed in requirements.txt 
+Before you run make sure to have the proper packages installed in requirements.txt, tested on Python 3.12
 or
-For most users, installing: pyscf openfermion matplotlib seaborn pennylane tequila-basic==1.9.9 torch torch_geometric would be enough. We require Setuptools<81
+For most users, installing: pyscf openfermion matplotlib seaborn pennylane tequila-basic==1.9.9 torch torch_geometric would be enough. A requirements file for python 3.10 is included as well.
+
+We require Setuptools<81
 
 ![GFlowNet sampling protocol](GFlow.png)
 
