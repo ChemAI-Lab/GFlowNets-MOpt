@@ -104,7 +104,7 @@ If `RESUME_ADDITIONAL_EPISODES = True`, then `n_episodes` is interpreted as the 
 Where molecule can be $H_2$, $H_4$, $LiH$, $BeH_2$, $H_2O$, $N_2$. The default bond distance is 1 Å. This can be modified in the gflow_vqe/hamiltonians.py file. 
 
 On driver.py, we can change parameters for GFlowNets like:
-`fig_name`, Training rate, number of `hid_uinits`, number of episodes, embedding dimension, `update_freq` and the random seed. We leave options for GPU usage, although we saw no real benefit. 
+`fig_name`, Training rate, `n_hid_units`, number of episodes, embedding dimension, `update_freq` and the random seed. We leave options for GPU usage, although we saw no real benefit.
 
 To compare sorted insertion, Tequila ICS, and ICS initialized from a GFlowNet-compatible grouping, use:
 
@@ -186,11 +186,44 @@ The `scripts/` folder contains some useful programs for post-processing, plottin
 - `benchmark_state_vector.py`: benchmarks the original training loop against the state-vector implementation to verify that the second implementation is faster.
 - `circuit_check_tequila.py`: verifies Tequila circuit compilation and checks that GFlowNet-generated groupings are compatible with Tequila circuit-cost evaluation.
 
+## Peak RAM requirements for state-vector training
+
+The following values are for CPU runs of `driver_sv.py` using `coeff_GIN_TB_training_custom_reward_state_vector`. They are **peak RAM values**, meaning the maximum RAM observed during training. Every value in the tables uses ceiling rounding to a whole GB, and scheduler limits should include additional headroom.
+
+### Measured peak RAM
+
+| Molecule | `n_hid_units` | `update_freq` | Measured peak RAM (GB) |
+|---|---:|---:|---:|
+| $H_4$ | 64 | 10 | 9 |
+| $LiH$ | 64 | 10 | 27 |
+| $BeH_2$ | 64 | 10 | 37 |
+| $H_2O$ | 64 | 10 | 244 |
+| $N_2$ | 64 | 10 | 433 |
+| $N_2$ | 8 | 10 | 110 |
+| $SiO$ | 24 | 4 | 583 |
+
+### Peak RAM for smaller settings
+
+The smaller H4, LiH, and BeH2 configurations below were also measured. Each check used `update_freq + 1` episodes, covering the initial update and the first complete accumulation window followed by its optimizer update. The values for H2O and N2 are estimates for a smaller setting. 
+
+Configuration headings are written as **`n_hid_units / update_freq`**
+
+| Molecule | `8 / 10` | `16 / 10` | `16 / 5` |
+|:---|---:|---:|---:|
+| $H_4$ | 4 | 5 | 3 |
+| $LiH$ | 9 | 12 | 6 |
+| $BeH_2$ | 17 | 17 | 9 |
+| $H_2O$ | 62 | 88 | 44 |
+| $N_2$ | 110† | 157 | 79 |
+
+† N2 measured peak is 110 GB with that configuration.
 
 ## Bibtex
 
+When using this repository or the methods herein, please cite:
+
 ```latex
-@misc{gflownets_mopt:2025,
+@misc{gflownets_mopt_2025,
       title={Discrete Flow-Based Generative Models for Measurement Optimization in Quantum Computing}, 
       author={Isaac L. Huidobro-Meezs and Jun Dai and Rodrigo A. Vargas-Hernández},
       year={2025},
@@ -198,5 +231,18 @@ The `scripts/` folder contains some useful programs for post-processing, plottin
       archivePrefix={arXiv},
       primaryClass={quant-ph},
       url={https://arxiv.org/abs/2509.15486}, 
+}
+```
+and
+
+```latex
+@misc{gflownets_hamiltonian_decomposition,
+      title={GFlowNets for Hamiltonian decomposition in groups of compatible operators}, 
+      author={Isaac L. Huidobro-Meezs and Jun Dai and Guillaume Rabusseau and Rodrigo A. Vargas-Hernández},
+      year={2024},
+      eprint={2410.16041},
+      archivePrefix={arXiv},
+      primaryClass={quant-ph},
+      url={https://arxiv.org/abs/2410.16041}, 
 }
 ```

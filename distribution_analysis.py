@@ -7,10 +7,13 @@ covariance dictionary
     C_ij = <P_i P_j> - <P_i><P_j>
 
 for the upper triangle of fully commuting, non-identity Pauli pairs.  It saves
-six probability-density figures: raw and normalized covariance distributions,
-raw and normalized coefficient-weighted covariance distributions, and raw and
-normalized Hamiltonian-coefficient distributions.  A multi-molecule run also
-saves a unit-peak relative-density companion for each figure.
+eight probability-density figures: raw and normalized covariance
+distributions, raw and normalized coefficient-weighted covariance
+distributions, raw and normalized Hamiltonian-coefficient distributions, the
+term variances C_ii = Var(P_i), and the coefficient-weighted term variances
+c_i^2 C_ii.  A multi-molecule run also saves a unit-peak relative-density
+companion for each figure.  The term-variance x-axis is fixed to [0, 1], while
+the coefficient-weighted term variance uses a nonnegative auto-scaled range.
 Normalized covariances are correlation coefficients
 C_ij / sqrt(C_ii C_jj); normalized coefficients are scaled by max_i |c_i|.
 The coefficient-weighted covariances use the original, unnormalized c_i.  For
@@ -18,27 +21,38 @@ each molecule, their normalized values are
 (c_i c_j C_ij) / max_kl |c_k c_l C_kl|, where the maximum absolute value is
 taken over the same selected covariance-pair population (including any
 off-diagonal filter).
-The constant identity term is excluded so both kinds of plots describe the
-same measurable Pauli terms.  Raw and normalized distributions retain their
-sign.
+The constant identity term is excluded so all plots describe the same
+measurable Pauli terms.  Term variances retain one diagonal C_ii per term even
+when ``--off-diagonal-only`` removes diagonal pairs from the pair-covariance
+plots.  Since P_i^2 = I, term variances are validated in [0, 1], with only
+roundoff-sized endpoint excursions clamped.  The c_i^2 C_ii samples use the
+original coefficients and are not normalized or restricted to [0, 1]; their
+plots use a nonnegative, auto-scaled x range.  KDE evaluation for both
+term-variance families is clipped at zero.  Raw and normalized distributions
+retain their sign.
 Every nonsingular KDE is drawn with a translucent fill, using consistent
 Seaborn colorblind-palette molecule colors across all figures in one run.
 Every plot is saved in both PNG and SVG format.
 Use ``--tight`` to add a second normalized coefficient-weighted covariance plot
 over the narrower x-axis interval [-0.25, 0.25], without replacing its standard
 [-1.05, 1.05] plot.  Multi-molecule runs also receive a tight unit-peak
-companion.  Normalized coefficient-weighted covariance plots use a finer KDE
-grid and half the usual bandwidth so their structure is easier to see;
+companion.  The unweighted term-variance plot uses one quarter of the usual KDE
+bandwidth so it captures more detail.  The normalized coefficient-weighted
+covariance plots retain half the usual bandwidth and a finer KDE grid.
 ``--bw-adjust`` remains the user-facing bandwidth multiplier.  Use ``--bars``
-to overlay density-normalized histogram bars on the probability-density KDE
-figures and additionally save a bar-only version of each probability-density
-plot.  The combined and bar-only filenames end in ``_bars`` and
-``_bars_only``, respectively.  Standalone bars use the same colorblind molecule
-colors and fill intensity as the KDE areas; the combined overlays remain
-lighter.  Unit-peak relative-density figures never include histogram bars or
-bar-only companions.  Use ``--no-grid`` for clean tick-style axes with outward
-ticks only on the bottom and left; this also hides the interior zero-reference
-line.  By default, plots retain the white grid and zero-reference line.
+to overlay density-normalized
+histogram bars on the probability-density KDE figures and additionally save a
+combined bar-only density figure.  It also saves one count histogram per
+requested molecule for every plot specification; these individual plots use
+common comparison-wide bin edges.  The combined and bar-only filenames end in
+``_bars`` and ``_bars_only``, while individual count histograms end in
+``_<molecule>_count_histogram``.  Standalone bars use the same colorblind
+molecule colors and fill intensity as the KDE areas; the combined overlays
+remain lighter.  Unit-peak relative-density figures never include histogram
+bars or bar-only companions.  Use ``--no-grid`` for clean tick-style axes with
+outward ticks only on the bottom and left; this also hides the interior
+zero-reference line.  By default, plots retain the white grid and zero-reference
+line.
 """
 
 from __future__ import annotations
@@ -84,6 +98,7 @@ import numpy as np
 import seaborn as sns
 import tequila as tq
 from matplotlib.patches import Patch
+from matplotlib.ticker import MaxNLocator
 from openfermion import QubitOperator
 from openfermion.linalg import get_sparse_operator
 from openfermion.utils import count_qubits
@@ -98,6 +113,7 @@ DEFAULT_BANDWIDTH_ADJUSTMENT = 0.8
 DEFAULT_KDE_GRIDSIZE = 200
 DETAILED_KDE_BANDWIDTH_FACTOR = 0.5
 DETAILED_KDE_GRIDSIZE = 1024
+TERM_VARIANCE_KDE_BANDWIDTH_FACTOR = 0.25
 HISTOGRAM_MAX_BINS = 100
 HISTOGRAM_SINGLE_ALPHA = 0.28
 HISTOGRAM_MULTI_ALPHA = 0.18
@@ -107,7 +123,11 @@ KDE_LINE_ZORDER = 2.5
 DEFAULT_COVARIANCE_CHUNKSIZE = 128
 DEFAULT_MAX_MEMORY_GIB = 8.0
 DEFAULT_NORMALIZED_X_LIMITS = (-1.05, 1.05)
+TERM_VARIANCE_X_LIMITS = (0.0, 1.0)
 TIGHT_WEIGHTED_NORMALIZED_X_LIMITS = (-0.25, 0.25)
+NONNEGATIVE_PLOT_ATTRIBUTES = frozenset(
+    ("term_variances", "term_variances_coefficient_weighted")
+)
 REAL_TOLERANCE = 1.0e-9
 ZERO_VARIANCE_TOLERANCE = 1.0e-12
 JW_SYSTEM_NAMES = (
@@ -174,14 +194,21 @@ class MoleculeDistributions:
     covariances_coefficient_weighted_normalized: np.ndarray = field(
         default_factory=lambda: np.asarray([], dtype=float)
     )
+    term_variances: np.ndarray = field(
+        default_factory=lambda: np.asarray([], dtype=float)
+    )
+    term_variances_coefficient_weighted: np.ndarray = field(
+        default_factory=lambda: np.asarray([], dtype=float)
+    )
 
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(
         description=(
             "Build Pauli covariance dictionaries and compare raw and "
-            "normalized coefficient, covariance, and coefficient-weighted "
-            "covariance distributions, saving every plot as PNG and SVG."
+            "normalized coefficient, covariance, coefficient-weighted "
+            "covariance, term-variance, and coefficient-weighted "
+            "term-variance distributions, saving every plot as PNG and SVG."
         )
     )
     parser.add_argument(
@@ -242,8 +269,9 @@ def parse_args(argv=None):
         type=float,
         default=DEFAULT_BANDWIDTH_ADJUSTMENT,
         help=(
-            "Seaborn KDE bandwidth multiplier (default: 0.8). The normalized "
-            "coefficient-weighted covariance KDE additionally uses a 0.5 "
+            "Seaborn KDE bandwidth multiplier (default: 0.8). The unweighted "
+            "term-variance KDE additionally uses a 0.25 detail factor; the "
+            "normalized coefficient-weighted covariance KDE uses a 0.5 "
             "detail factor."
         ),
     )
@@ -251,8 +279,9 @@ def parse_args(argv=None):
         "--off-diagonal-only",
         action="store_true",
         help=(
-            "Exclude diagonal variances C_ii from all covariance-derived "
-            "plots."
+            "Exclude diagonal entries C_ii from covariance-pair plots. "
+            "Dedicated term-variance plots still include every measurable "
+            "Pauli term."
         ),
     )
     parser.add_argument(
@@ -269,12 +298,14 @@ def parse_args(argv=None):
         action="store_true",
         help=(
             "Overlay density-normalized histogram bars on probability-density "
-            "KDE figures and also save separate bar-only figures, using common "
-            "bin edges for comparisons. Combined and bar-only outputs end in "
-            "'_bars' and '_bars_only'. Standalone bars match the KDE fill "
-            "intensity, while combined overlays remain lighter. Unit-peak "
-            "relative-density figures never show bars or receive bar-only "
-            "companions."
+            "KDE figures and save combined bar-only density figures. Also "
+            "save one count histogram per molecule and plot specification, "
+            "using common comparison-wide bin edges. Combined and bar-only "
+            "outputs end in '_bars' and '_bars_only'; individual outputs end "
+            "in '_<molecule>_count_histogram'. Standalone bars match the KDE "
+            "fill intensity, while combined overlays remain lighter. "
+            "Unit-peak relative-density figures never show bars or receive "
+            "bar-only companions."
         ),
     )
     parser.add_argument(
@@ -557,6 +588,63 @@ def clean_diagonal_variance(value, term_index):
     return variance
 
 
+def term_variance_samples(covariance_dictionary, terms):
+    """Return C_ii and c_i^2 C_ii once per measurable Pauli term."""
+
+    variances = []
+    coefficient_weighted_variances = []
+    seen_indices = set()
+    for term in terms:
+        term_index = term.index
+        if term_index in seen_indices:
+            raise ValueError(
+                "Duplicate Pauli-term index {} while extracting diagonal "
+                "variances.".format(term_index)
+            )
+        seen_indices.add(term_index)
+
+        diagonal_key = (term_index, term_index)
+        if diagonal_key not in covariance_dictionary:
+            raise ValueError(
+                "Missing diagonal covariance C_{}{} for measurable Pauli "
+                "term {}.".format(term_index, term_index, term_index)
+            )
+        variance = clean_diagonal_variance(
+            covariance_dictionary[diagonal_key],
+            term_index,
+        )
+        if variance > 1.0:
+            if variance - 1.0 <= ZERO_VARIANCE_TOLERANCE:
+                variance = 1.0
+            else:
+                raise ValueError(
+                    "Term {} has a diagonal covariance larger than one: {}."
+                    .format(term_index, variance)
+                )
+
+        coefficient = real_scalar(
+            term.coefficient,
+            "c_{}".format(term_index),
+        )
+        variances.append(variance)
+        coefficient_weighted_variances.append(
+            coefficient * coefficient * variance
+        )
+
+    return (
+        real_array(
+            variances,
+            "term variance samples",
+            allow_empty=True,
+        ),
+        real_array(
+            coefficient_weighted_variances,
+            "coefficient-weighted term variance samples",
+            allow_empty=True,
+        ),
+    )
+
+
 def covariance_samples(covariance_dictionary, off_diagonal_only=False):
     """Return signed raw covariances and defined correlation coefficients."""
 
@@ -813,6 +901,21 @@ def analyze_molecule(name, args):
         [term.coefficient for term in measurable_terms],
         "{} Hamiltonian coefficients".format(name),
     )
+    (
+        term_variances,
+        term_variances_coefficient_weighted,
+    ) = term_variance_samples(
+        covariance_dictionary,
+        measurable_terms,
+    )
+    if term_variances.size != len(measurable_terms):
+        raise RuntimeError(
+            "Term-variance and measurable-term sample counts differ."
+        )
+    if term_variances_coefficient_weighted.size != term_variances.size:
+        raise RuntimeError(
+            "Coefficient-weighted and raw term-variance sample counts differ."
+        )
     covariances_raw, covariances_normalized, skipped = covariance_samples(
         covariance_dictionary,
         off_diagonal_only=args.off_diagonal_only,
@@ -859,11 +962,17 @@ def analyze_molecule(name, args):
         covariances_coefficient_weighted_normalized=(
             covariances_coefficient_weighted_normalized
         ),
+        term_variances=term_variances,
+        term_variances_coefficient_weighted=(
+            term_variances_coefficient_weighted
+        ),
     )
     print(
         "{}: covariance_entries={} runtime_s={:.6f}; plotted_raw={} "
         "plotted_normalized={} plotted_coefficient_weighted={} "
         "plotted_coefficient_weighted_normalized={} "
+        "plotted_term_variances={} "
+        "plotted_coefficient_weighted_term_variances={} "
         "skipped_zero_variance={}".format(
             name,
             result.covariance_entries,
@@ -872,6 +981,8 @@ def analyze_molecule(name, args):
             result.covariances_normalized.size,
             result.covariances_coefficient_weighted.size,
             result.covariances_coefficient_weighted_normalized.size,
+            result.term_variances.size,
+            result.term_variances_coefficient_weighted.size,
             result.skipped_normalized_covariances,
         ),
         flush=True,
@@ -966,9 +1077,17 @@ def histogram_density(values, bin_edges):
     """Return probability-density heights for fixed histogram edges."""
 
     values = np.asarray(values, dtype=float)
-    counts, _ = np.histogram(values, bins=bin_edges)
+    counts = histogram_counts(values, bin_edges)
     widths = np.diff(bin_edges)
     return counts.astype(float) / (values.size * widths)
+
+
+def histogram_counts(values, bin_edges):
+    """Return unnormalized bin counts for fixed histogram edges."""
+
+    values = np.asarray(values, dtype=float)
+    counts, _ = np.histogram(values, bins=bin_edges)
+    return counts
 
 
 def figure_output_paths(output_path):
@@ -1023,8 +1142,9 @@ def plot_distributions(
     kde_gridsize=DEFAULT_KDE_GRIDSIZE,
     colors_by_name=None,
     no_grid=False,
+    nonnegative=False,
 ):
-    """Overlay filled KDEs and base-density bars, then save both formats."""
+    """Overlay KDEs/bars, optionally clipping support to nonnegative x."""
 
     sns.set_theme(style="ticks" if no_grid else "whitegrid", context="talk")
     figure, axis = plt.subplots(figsize=(10.5, 6.5))
@@ -1074,6 +1194,9 @@ def plot_distributions(
 
         if has_kde_support(values):
             line_count = len(axis.lines)
+            kde_support_options = {}
+            if nonnegative:
+                kde_support_options["clip"] = (0.0, np.inf)
             sns.kdeplot(
                 x=values,
                 ax=axis,
@@ -1086,6 +1209,7 @@ def plot_distributions(
                 warn_singular=False,
                 linewidth=2.0,
                 zorder=KDE_LINE_ZORDER,
+                **kde_support_options,
             )
             if len(axis.lines) != line_count + 1:
                 raise RuntimeError("Seaborn did not produce one KDE curve.")
@@ -1153,6 +1277,8 @@ def plot_distributions(
         )
     if fixed_xlim is not None:
         axis.set_xlim(*fixed_xlim)
+    elif nonnegative:
+        axis.set_xlim(left=0.0)
     axis.set_xlabel(x_label)
     if peak_normalized:
         axis.set_ylim(0.0, 1.05)
@@ -1185,8 +1311,9 @@ def plot_histograms(
     fixed_xlim=None,
     colors_by_name=None,
     no_grid=False,
+    nonnegative=False,
 ):
-    """Overlay probability-density histograms and save both formats."""
+    """Overlay histograms, optionally keeping the auto x-axis nonnegative."""
 
     sns.set_theme(style="ticks" if no_grid else "whitegrid", context="talk")
     figure, axis = plt.subplots(figsize=(10.5, 6.5))
@@ -1251,11 +1378,102 @@ def plot_histograms(
         )
     if fixed_xlim is not None:
         axis.set_xlim(*fixed_xlim)
+    elif nonnegative:
+        axis.set_xlim(left=0.0)
     axis.set_xlabel(x_label)
     axis.set_ylim(bottom=0.0)
     axis.set_ylabel("Probability density")
     configure_axes_style(axis, no_grid)
     axis.legend(handles=legend_handles, title="Molecule", frameon=True)
+    figure.tight_layout()
+
+    saved_paths = figure_output_paths(output_path)
+    for saved_path in saved_paths:
+        figure.savefig(
+            saved_path,
+            format=saved_path.suffix.lstrip("."),
+            dpi=dpi,
+            bbox_inches="tight",
+        )
+    plt.close(figure)
+    for saved_path in saved_paths:
+        print("Saved {}".format(saved_path), flush=True)
+    return saved_paths
+
+
+def plot_individual_count_histogram(
+    distribution,
+    attribute,
+    x_label,
+    output_path,
+    dpi,
+    histogram_edges,
+    color,
+    fixed_xlim=None,
+    no_grid=False,
+    nonnegative=False,
+):
+    """Save one molecule's count histogram using comparison-wide bins."""
+
+    sns.set_theme(style="ticks" if no_grid else "whitegrid", context="talk")
+    figure, axis = plt.subplots(figsize=(10.5, 6.5))
+    values = np.asarray(getattr(distribution, attribute), dtype=float)
+    if values.size and not np.all(np.isfinite(values)):
+        raise ValueError(
+            "Cannot plot histogram counts for non-finite {} values."
+            .format(attribute)
+        )
+
+    color_patch = Patch(
+        facecolor=color,
+        edgecolor=color,
+        linewidth=0.5,
+        alpha=KDE_FILL_ALPHA,
+        label="{} (n={:,}){}".format(
+            distribution.name,
+            values.size,
+            "; undefined" if values.size == 0 else "",
+        ),
+    )
+    if values.size == 0:
+        axis.text(
+            0.5,
+            0.5,
+            "No defined samples",
+            transform=axis.transAxes,
+            ha="center",
+            va="center",
+        )
+    else:
+        if histogram_edges is None:
+            raise ValueError(
+                "Shared histogram bin edges are required for nonempty values."
+            )
+        counts = histogram_counts(values, histogram_edges)
+        axis.bar(
+            histogram_edges[:-1],
+            counts,
+            width=np.diff(histogram_edges),
+            align="edge",
+            color=color,
+            edgecolor=color,
+            linewidth=0.5,
+            alpha=KDE_FILL_ALPHA,
+            label="_nolegend_",
+        )
+
+    if not no_grid:
+        axis.axvline(0.0, color="black", linewidth=0.9, alpha=0.45)
+    if fixed_xlim is not None:
+        axis.set_xlim(*fixed_xlim)
+    elif nonnegative:
+        axis.set_xlim(left=0.0)
+    axis.set_xlabel(x_label)
+    axis.set_ylim(bottom=0.0)
+    axis.set_ylabel("Count")
+    axis.yaxis.set_major_locator(MaxNLocator(integer=True))
+    configure_axes_style(axis, no_grid)
+    axis.legend(handles=[color_patch], title="Molecule", frameon=True)
     figure.tight_layout()
 
     saved_paths = figure_output_paths(output_path)
@@ -1323,6 +1541,21 @@ def make_all_plots(distributions, args):
             r"Normalized coefficient $c_i/\max_j|c_j|$",
             DEFAULT_NORMALIZED_X_LIMITS,
         ),
+        (
+            "term_variances",
+            "term_variances",
+            "term_variances",
+            r"Term variance $\mathrm{Var}(P_i)=C_{ii}$",
+            TERM_VARIANCE_X_LIMITS,
+        ),
+        (
+            "term_variances_coefficient_weighted",
+            "term_variances_coefficient_weighted",
+            "term_variances_coefficient_weighted",
+            r"Coefficient-weighted term variance "
+            r"$c_i^2\mathrm{Var}(P_i)=c_i^2 C_{ii}$",
+            None,
+        ),
     )
     if args.tight:
         plot_specs += (
@@ -1341,6 +1574,13 @@ def make_all_plots(distributions, args):
         detailed_kde = (
             attribute == "covariances_coefficient_weighted_normalized"
         )
+        term_variance_kde = attribute == "term_variances"
+        kde_bandwidth_factor = 1.0
+        if detailed_kde:
+            kde_bandwidth_factor = DETAILED_KDE_BANDWIDTH_FACTOR
+        elif term_variance_kde:
+            kde_bandwidth_factor = TERM_VARIANCE_KDE_BANDWIDTH_FACTOR
+        nonnegative = attribute in NONNEGATIVE_PLOT_ATTRIBUTES
         output_path = args.output_dir / "{}_{}".format(
             prefix,
             filename_component,
@@ -1356,9 +1596,7 @@ def make_all_plots(distributions, args):
             args.dpi,
             fixed_xlim=fixed_xlim,
             bars=args.bars,
-            kde_bandwidth_factor=(
-                DETAILED_KDE_BANDWIDTH_FACTOR if detailed_kde else 1.0
-            ),
+            kde_bandwidth_factor=kde_bandwidth_factor,
             kde_gridsize=(
                 DETAILED_KDE_GRIDSIZE
                 if detailed_kde
@@ -1366,11 +1604,17 @@ def make_all_plots(distributions, args):
             ),
             colors_by_name=colors_by_name,
             no_grid=no_grid,
+            nonnegative=nonnegative,
         )
         png_path, svg_path = saved_paths
         paths[key] = png_path
         paths["{}_svg".format(key)] = svg_path
         if args.bars:
+            histogram_edges = common_histogram_bin_edges(
+                distributions,
+                attribute,
+                fixed_xlim=fixed_xlim,
+            )
             bars_only_key = "{}_bars_only".format(key)
             bars_only_output_path = args.output_dir / "{}_{}_bars_only".format(
                 prefix,
@@ -1385,10 +1629,60 @@ def make_all_plots(distributions, args):
                 fixed_xlim=fixed_xlim,
                 colors_by_name=colors_by_name,
                 no_grid=no_grid,
+                nonnegative=nonnegative,
             )
             bars_only_png_path, bars_only_svg_path = bars_only_paths
             paths[bars_only_key] = bars_only_png_path
             paths["{}_svg".format(bars_only_key)] = bars_only_svg_path
+
+            for distribution in distributions:
+                molecule_component = safe_filename_component(
+                    distribution.name
+                )
+                if not molecule_component:
+                    raise ValueError(
+                        "Molecule '{}' has no filename-safe characters."
+                        .format(distribution.name)
+                    )
+                count_key = "{}_{}_count_histogram".format(
+                    key,
+                    molecule_component,
+                )
+                if count_key in paths:
+                    raise ValueError(
+                        "Duplicate count-histogram path key '{}'.".format(
+                            count_key
+                        )
+                    )
+                try:
+                    color = colors_by_name[distribution.name]
+                except KeyError as error:
+                    raise ValueError(
+                        "No density color was assigned to molecule '{}'."
+                        .format(distribution.name)
+                    ) from error
+                count_output_path = args.output_dir / (
+                    "{}_{}_{}_count_histogram".format(
+                        prefix,
+                        filename_component,
+                        molecule_component,
+                    )
+                )
+                count_paths = plot_individual_count_histogram(
+                    distribution,
+                    attribute,
+                    x_label,
+                    count_output_path,
+                    args.dpi,
+                    histogram_edges,
+                    color,
+                    fixed_xlim=fixed_xlim,
+                    no_grid=no_grid,
+                    nonnegative=nonnegative,
+                )
+                count_png_path, count_svg_path = count_paths
+                paths[count_key] = count_png_path
+                paths["{}_svg".format(count_key)] = count_svg_path
 
     if len(distributions) > 1:
         for key, attribute, filename_component, x_label, fixed_xlim in plot_specs:
@@ -1396,6 +1690,13 @@ def make_all_plots(distributions, args):
             detailed_kde = (
                 attribute == "covariances_coefficient_weighted_normalized"
             )
+            term_variance_kde = attribute == "term_variances"
+            kde_bandwidth_factor = 1.0
+            if detailed_kde:
+                kde_bandwidth_factor = DETAILED_KDE_BANDWIDTH_FACTOR
+            elif term_variance_kde:
+                kde_bandwidth_factor = TERM_VARIANCE_KDE_BANDWIDTH_FACTOR
+            nonnegative = attribute in NONNEGATIVE_PLOT_ATTRIBUTES
             output_path = args.output_dir / "{}_{}_unit_peak_density".format(
                 prefix,
                 filename_component,
@@ -1410,9 +1711,7 @@ def make_all_plots(distributions, args):
                 fixed_xlim=fixed_xlim,
                 peak_normalized=True,
                 bars=False,
-                kde_bandwidth_factor=(
-                    DETAILED_KDE_BANDWIDTH_FACTOR if detailed_kde else 1.0
-                ),
+                kde_bandwidth_factor=kde_bandwidth_factor,
                 kde_gridsize=(
                     DETAILED_KDE_GRIDSIZE
                     if detailed_kde
@@ -1420,6 +1719,7 @@ def make_all_plots(distributions, args):
                 ),
                 colors_by_name=colors_by_name,
                 no_grid=no_grid,
+                nonnegative=nonnegative,
             )
             png_path, svg_path = saved_paths
             paths[peak_key] = png_path
@@ -1443,6 +1743,19 @@ def main(argv=None):
         )
     )
     print(
+        "Term variance x-axis={}; coefficient-weighted term variance "
+        "x-axis=nonnegative auto-scaled range".format(
+            TERM_VARIANCE_X_LIMITS
+        )
+    )
+    print(
+        "Unweighted term-variance KDE: bw_adjust={:.6g} "
+        "({} x --bw-adjust)".format(
+            args.bw_adjust * TERM_VARIANCE_KDE_BANDWIDTH_FACTOR,
+            TERM_VARIANCE_KDE_BANDWIDTH_FACTOR,
+        )
+    )
+    print(
         "Normalized coefficient-weighted covariance KDE: "
         "bw_adjust={:.6g} ({} x --bw-adjust), gridsize={}".format(
             args.bw_adjust * DETAILED_KDE_BANDWIDTH_FACTOR,
@@ -1453,8 +1766,11 @@ def main(argv=None):
     print(
         "Density histogram bars={}".format(
             "enabled as KDE overlays and separate bar-only probability-density "
-            "plots (shared comparison bins/colors; standalone alpha={:.2f}; "
-            "combined overlays remain lighter)".format(KDE_FILL_ALPHA)
+            "plots, plus one count histogram per molecule and plot "
+            "specification (shared comparison bins/colors; standalone "
+            "alpha={:.2f}; combined overlays remain lighter)".format(
+                KDE_FILL_ALPHA
+            )
             if args.bars
             else "disabled"
         )
@@ -1470,7 +1786,9 @@ def main(argv=None):
         "Normalization: covariance=correlation coefficient; "
         "coefficient=max-absolute scaling; coefficient-weighted covariance="
         "raw coefficients; normalized coefficient-weighted covariance="
-        "per-molecule maximum-absolute scaling over the selected pairs."
+        "per-molecule maximum-absolute scaling over the selected pairs; "
+        "term variance=C_ii; coefficient-weighted term variance="
+        "raw c_i^2 C_ii."
     )
 
     distributions = []
