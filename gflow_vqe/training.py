@@ -1,3 +1,7 @@
+import errno
+from functools import wraps
+import sys
+
 from tqdm import tqdm, trange
 import torch
 from torch.distributions.categorical import Categorical
@@ -5,6 +9,78 @@ from gflow_vqe.utils import *
 from gflow_vqe.gflow_utils import *
 
 TRAINING_DEVICE = torch.device("cpu")
+STATE_VECTOR_OOM_ERROR_MESSAGE = (
+    "OOM error: Try decreasing the value for n_hid_units and/or update_freq. "
+    "For RAM memory estimates, consult the README.md file"
+)
+
+
+def _is_out_of_memory_error(error):
+    """Return whether an exception chain contains a recognizable OOM error."""
+
+    torch_oom_types = []
+    for namespace in (torch, getattr(torch, "cuda", None)):
+        oom_type = getattr(namespace, "OutOfMemoryError", None)
+        if isinstance(oom_type, type):
+            torch_oom_types.append(oom_type)
+    torch_oom_types = tuple(torch_oom_types)
+
+    torch_runtime_markers = (
+        "cuda out of memory",
+        "cuda error: out of memory",
+        "hip out of memory",
+        "mps backend out of memory",
+        "defaultcpuallocator: can't allocate memory",
+        "defaultcpuallocator: not enough memory",
+        "cpuallocator: can't allocate memory",
+        "cpuallocator: not enough memory",
+    )
+
+    seen = set()
+    current_error = error
+    while current_error is not None and id(current_error) not in seen:
+        seen.add(id(current_error))
+        if isinstance(current_error, MemoryError):
+            return True
+        if (
+            isinstance(current_error, OSError)
+            and current_error.errno == errno.ENOMEM
+        ):
+            return True
+        if torch_oom_types and isinstance(current_error, torch_oom_types):
+            return True
+        if isinstance(current_error, RuntimeError):
+            message = str(current_error).lower()
+            if message.strip().rstrip(".") == "out of memory":
+                return True
+            if any(marker in message for marker in torch_runtime_markers):
+                return True
+        if current_error.__cause__ is not None:
+            current_error = current_error.__cause__
+        elif not current_error.__suppress_context__:
+            current_error = current_error.__context__
+        else:
+            current_error = None
+    return False
+
+
+def _with_state_vector_oom_guidance(training_function):
+    """Report actionable guidance while preserving the original OOM."""
+
+    @wraps(training_function)
+    def wrapped(*args, **kwargs):
+        try:
+            return training_function(*args, **kwargs)
+        except Exception as error:
+            if _is_out_of_memory_error(error):
+                print(
+                    STATE_VECTOR_OOM_ERROR_MESSAGE,
+                    file=sys.stderr,
+                    flush=True,
+                )
+            raise
+
+    return wrapped
 
 
 def set_training_device(device=None):
@@ -1531,6 +1607,7 @@ def _optimizer_state_to_device(optimizer, device):
                 state[key] = value.to(device)
 
 
+@_with_state_vector_oom_guidance
 def _coeff_graph_model_TB_training_custom_reward_state_vector(
     graph,
     n_terms,
