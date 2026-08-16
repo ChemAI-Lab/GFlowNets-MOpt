@@ -214,7 +214,7 @@ Configuration headings are written as **`n_hid_units / update_freq`**
 |:---|---:|---:|---:|
 | $H_4$ | 4 | 5 | 3 |
 | $LiH$ | 9 | 12 | 6 |
-| $BeH_2$ | 12 | 17 | 9 |
+| $BeH_2$ | 15 | 17 | 9 |
 | $H_2O$ | 62 | 88 | 44 |
 | $N_2$ | 110† | 157 | 79 |
 
