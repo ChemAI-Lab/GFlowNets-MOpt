@@ -102,7 +102,7 @@ MOLECULE_COLORS = {
     "H2O": "#9467bd",
     "N2": "#8c564b",
     "SiO": "#e377c2",
-    "MgO": "#7f7f7f",
+    "MgO": "#3D64B6",
 }
 
 PLOT_SPECS = (

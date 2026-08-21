@@ -62,4 +62,5 @@ plt.savefig("Average_top10_H2OjwfC.png", format='png', dpi=600)
 # * BeH2: '#d62728' "p" 6.52
 # * H2O: '#9467bd'  "d" 23.0
 # * N2: '#8c564b'   "h" 
-# * NH3: '#e377c2'  "X"
+# * SiO: '#e377c2'  "X"
+# * MgO: "#3D64B6",
