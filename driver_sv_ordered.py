@@ -1,0 +1,172 @@
+from gflow_vqe.utils import *
+from gflow_vqe.hamiltonians import *
+from gflow_vqe.gflow_utils import *
+from gflow_vqe.result_analysis import *
+from gflow_vqe.training import *
+import torch
+import time
+
+# Set GPU=True to use cuda:0 when available. If absent/False, CPU is used.
+GPU = globals().get("GPU", False)
+device = torch.device("cuda:0" if GPU and torch.cuda.is_available() else "cpu")
+set_training_device(device)
+print("Training device={}".format(device))
+
+# Optional checkpoint resume.
+# Set to a .pth path (state-vector or matching older non-statevector GNN TB model checkpoint).
+RESUME_CHECKPOINT = None #"H4_statevec_ginTBmodel.pth"
+# If True, n_episodes means "additional episodes" after the checkpoint epoch.
+# If False, n_episodes is treated as the absolute final episode count.
+RESUME_ADDITIONAL_EPISODES = globals().get("RESUME_ADDITIONAL_EPISODES", True)
+if RESUME_CHECKPOINT is not None:
+    print("Resuming from checkpoint={}".format(RESUME_CHECKPOINT))
+    print("Resume additional episodes={}".format(RESUME_ADDITIONAL_EPISODES))
+
+########################
+#Hamiltonian definition#
+# and initialization   #
+########################
+driver_args = parse_driver_args()
+molecule = driver_args.func
+if molecule is None:
+    raise ValueError("Unknown molecule '{}'".format(driver_args.func_name))
+reward_wfn_method = driver_args.wfn
+print("Training reward wavefunction={}".format(reward_wfn_method))
+t0 = time.time()
+mol, H, Hferm, n_paulis, Hq = molecule()
+print("Number of Pauli products to measure: {}".format(n_paulis))
+############################
+# Get wavefunctions for training reward (selected) and FCI analysis #
+############################
+
+sparse_hamiltonian = get_sparse_operator(Hq)
+fci_energy, fci_wfn = get_variance_wavefunction(mol, Hq, method="FCI", sparse_hamiltonian=sparse_hamiltonian)
+print("FCI Energy={}".format(fci_energy))
+if reward_wfn_method == "FCI":
+    reward_wfn = fci_wfn
+    reward_wfn_energy = fci_energy
+else:
+    reward_wfn_energy, reward_wfn = get_variance_wavefunction(
+        mol,
+        Hq,
+        method=reward_wfn_method,
+        sparse_hamiltonian=sparse_hamiltonian,
+    )
+    print("{} Energy={}".format(reward_wfn_method, reward_wfn_energy))
+n_q = count_qubits(Hq)
+print("Number of Qubits={}".format(n_q))
+#Get list of Hamiltonian terms and generate complementary graph
+binary_H = BinaryHamiltonian.init_from_qubit_hamiltonian(H)
+terms=sorted(get_terms(binary_H), key=lambda term: abs(term.get_coeff()), reverse=True)
+CompMatrix=FC_CompMatrix(terms)
+#CompMatrix=QWC_CompMatrix(terms)
+Gc=obj_to_comp_graph(terms, CompMatrix)
+n_terms=nx.number_of_nodes(Gc)
+print("Number of terms in the Hamiltonian: {}".format(n_terms))
+###########################
+# Parameters for GFlowNets#
+###########################
+
+n_hid_units = 64
+n_episodes = 1000
+learning_rate = 3e-4
+update_freq = 10
+seed = 45
+n_emb_dim = 2  # Dimension of the embedding layer.
+device_ids=[0, 1] #Number of GPUs to use, if available. If you have only one GPU, set this to [0]. If you have two GPUs, set this to [0, 1].
+fig_name = driver_args.func_name
+color_map = nx.coloring.greedy_color(Gc, strategy="random_sequential")
+#bound=max(color_map.values())+2 #Use random sequential, Largest first or set manually.
+
+print("For all experiments, our hyperparameters will be:")
+print("    + n_hid_units={}".format(n_hid_units))
+print("    + n_episodes={}".format(n_episodes))
+print("    + learning_rate={}".format(learning_rate))
+print("    + update_freq={}".format(update_freq))
+print("    + seed={}".format(seed))
+print("    + n_emb_dim={}".format(n_emb_dim))
+#print("    + bound={}".format(bound))
+##################################
+# Training Loop!! ################
+##################################
+#For custom reward, comment otherwise.
+l0 = 0 #\Lambda_0 parameter for Measurement reward
+l1 = 1 #\Lambda_1 parameter for Color reward
+l2 = 0 #\Lambda_2 parameter for total two-qubit gate reward
+
+print("For custom reward:")
+print("    + l0={}".format(l0))
+print("    + l1={}".format(l1))
+print("    + l2={}".format(l2))
+
+# State-vector training functions (faster than networkx object versions).
+sampled_colorings, losses = coeff_GIN_TB_training_custom_reward_state_vector(
+    Gc,
+    n_terms,
+    n_hid_units,
+    n_episodes,
+    learning_rate,
+    update_freq,
+    seed,
+    reward_wfn,
+    n_q,
+    fig_name,
+    n_emb_dim,
+    l0,
+    l1,
+    l2,
+    resume_checkpoint=RESUME_CHECKPOINT,
+    resume_additional_episodes=RESUME_ADDITIONAL_EPISODES,
+)
+#sampled_colorings, losses = coeff_GAT_TB_training_custom_reward_state_vector(
+#    Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed,
+#    reward_wfn, n_q, fig_name, n_emb_dim, l0, l1, l2,
+#    resume_checkpoint=RESUME_CHECKPOINT,
+#    resume_additional_episodes=RESUME_ADDITIONAL_EPISODES,
+#)
+#sampled_colorings, losses = coeff_Transformer_TB_training_custom_reward_state_vector(
+#    Gc, n_terms, n_hid_units, n_episodes, learning_rate, update_freq, seed,
+#    reward_wfn, n_q, fig_name, n_emb_dim, l0, l1, l2,
+#    resume_checkpoint=RESUME_CHECKPOINT,
+#    resume_additional_episodes=RESUME_ADDITIONAL_EPISODES,
+#)
+sampled_graphs = state_vector_colorings_to_graphs(Gc, sampled_colorings)
+
+##################################
+#Timing###########################
+t1 = time.time()
+print(f"Training time: {t1 - t0:.2f} seconds")
+##################################
+# Save graphs to file!! ##########
+##################################
+
+sampled_graphs_path = fig_name + "_sampled_graphs.p"
+try:
+    with open(sampled_graphs_path, 'rb') as f:
+        previous_sampled_graphs = pickle.load(f)
+    if not isinstance(previous_sampled_graphs, list):
+        previous_sampled_graphs = list(previous_sampled_graphs)
+    sampled_graphs = previous_sampled_graphs + sampled_graphs
+    print(
+        "Concatenating sampled graphs: existing={} new={} total={}".format(
+            len(previous_sampled_graphs), len(sampled_graphs) - len(previous_sampled_graphs), len(sampled_graphs)
+        )
+    )
+except FileNotFoundError:
+    pass
+
+with open(sampled_graphs_path, 'wb') as f:
+    pickle.dump(sampled_graphs, f, pickle.HIGHEST_PROTOCOL)
+
+print("Sampled graphs saved to file: {}".format(sampled_graphs_path))
+##################################################################################
+## Done with the training loop, now we can analyze results.#######################
+##################################################################################
+#check_sampled_graphs_vqe_plot(fig_name, sampled_graphs) #Prints commutativity graphs for best performing groupings
+#check_sampled_graphs_vqe(sampled_graphs)
+#check_sampled_graphs_fci(sampled_graphs, fci_wfn, n_q)
+check_sampled_graphs_wf_plot(fig_name, sampled_graphs, reward_wfn, fci_wfn, n_q, l0=l0, l1=l1, l2=l2)
+plot_loss_curve(fig_name, losses, title="Loss over Training Iterations")
+#histogram_last(sampled_graphs)
+#histogram_all(fig_name,sampled_graphs)
+histogram_all_fci(fig_name,sampled_graphs,fci_wfn,n_q)
