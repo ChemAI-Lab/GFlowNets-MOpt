@@ -52,7 +52,10 @@ remain lighter.  Unit-peak relative-density figures never include histogram
 bars or bar-only companions.  Use ``--no-grid`` for clean tick-style axes with
 outward ticks only on the bottom and left; this also hides the interior
 zero-reference line.  By default, plots retain the white grid and zero-reference
-line.
+line.  For multi-molecule comparisons, use ``--break-y`` to add broken-axis
+copies of the raw-covariance and unweighted term-variance unit-peak
+relative-density figures.  These companions omit the relative-density interval
+from 0.2 to 0.9 while retaining the standard figures.
 """
 
 from __future__ import annotations
@@ -98,7 +101,7 @@ import numpy as np
 import seaborn as sns
 import tequila as tq
 from matplotlib.patches import Patch
-from matplotlib.ticker import MaxNLocator
+from matplotlib.ticker import FormatStrFormatter, MaxNLocator
 from openfermion import QubitOperator
 from openfermion.linalg import get_sparse_operator
 from openfermion.utils import count_qubits
@@ -125,6 +128,12 @@ DEFAULT_MAX_MEMORY_GIB = 8.0
 DEFAULT_NORMALIZED_X_LIMITS = (-1.05, 1.05)
 TERM_VARIANCE_X_LIMITS = (0.0, 1.0)
 TIGHT_WEIGHTED_NORMALIZED_X_LIMITS = (-0.25, 0.25)
+BROKEN_Y_LOWER_LIMITS = (0.0, 0.2)
+BROKEN_Y_UPPER_LIMITS = (0.9, 1.01)
+BROKEN_Y_LOWER_TICKS = (0.0, 0.1, 0.2)
+BROKEN_Y_UPPER_TICKS = (0.9, 1.0)
+BROKEN_Y_SUBPLOT_HSPACE = 0.15
+BROKEN_Y_PLOT_ATTRIBUTES = frozenset(("covariances_raw", "term_variances"))
 NONNEGATIVE_PLOT_ATTRIBUTES = frozenset(
     ("term_variances", "term_variances_coefficient_weighted")
 )
@@ -315,6 +324,16 @@ def parse_args(argv=None):
             "Remove interior gridlines and the zero-reference line from every "
             "plot, using outward ticks only on the bottom and left. The "
             "default keeps the white grid and zero-reference line."
+        ),
+    )
+    parser.add_argument(
+        "--break-y",
+        action="store_true",
+        help=(
+            "For multi-molecule comparisons, add broken-axis copies of the "
+            "raw-covariance and unweighted term-variance unit-peak relative-"
+            "density figures, omitting the y-axis interval from 0.2 to 0.9. "
+            "The standard relative-density figures are still generated."
         ),
     )
     parser.add_argument(
@@ -1128,6 +1147,51 @@ def configure_axes_style(axis, no_grid):
     sns.despine(ax=axis, top=True, right=True, left=False, bottom=False)
 
 
+def configure_broken_y_axes(upper_axis, lower_axis, no_grid):
+    """Style two shared-x axes with a break between their y ranges."""
+
+    upper_axis.set_yticks(BROKEN_Y_UPPER_TICKS)
+    lower_axis.set_yticks(BROKEN_Y_LOWER_TICKS)
+    for plot_axis in (upper_axis, lower_axis):
+        plot_axis.yaxis.set_major_formatter(FormatStrFormatter("%.1f"))
+
+    upper_axis.spines.bottom.set_visible(False)
+    lower_axis.spines.top.set_visible(False)
+    upper_axis.tick_params(axis="x", which="both", bottom=False, labelbottom=False)
+    if no_grid:
+        upper_axis.tick_params(axis="x", which="both", top=False, labeltop=False)
+    else:
+        upper_axis.xaxis.tick_top()
+        upper_axis.tick_params(axis="x", which="both", labeltop=False)
+    lower_axis.xaxis.tick_bottom()
+
+    diagonal_slope = 0.5
+    marker_options = {
+        "marker": [
+            (-1, -diagonal_slope),
+            (1, diagonal_slope),
+        ],
+        "markersize": 12,
+        "linestyle": "none",
+        "color": "black",
+        "markeredgecolor": "black",
+        "markeredgewidth": 1,
+        "clip_on": False,
+    }
+    upper_axis.plot(
+        [0, 1],
+        [0, 0],
+        transform=upper_axis.transAxes,
+        **marker_options,
+    )
+    lower_axis.plot(
+        [0, 1],
+        [1, 1],
+        transform=lower_axis.transAxes,
+        **marker_options,
+    )
+
+
 def plot_distributions(
     distributions,
     attribute,
@@ -1143,11 +1207,26 @@ def plot_distributions(
     colors_by_name=None,
     no_grid=False,
     nonnegative=False,
+    broken_y=False,
 ):
     """Overlay KDEs/bars, optionally clipping support to nonnegative x."""
 
+    if broken_y and not peak_normalized:
+        raise ValueError("A broken y-axis requires peak-normalized densities.")
     sns.set_theme(style="ticks" if no_grid else "whitegrid", context="talk")
-    figure, axis = plt.subplots(figsize=(10.5, 6.5))
+    if broken_y:
+        figure, (upper_axis, lower_axis) = plt.subplots(
+            2,
+            1,
+            sharex=True,
+            figsize=(10.5, 6.5),
+        )
+        axes = (upper_axis, lower_axis)
+    else:
+        figure, axis = plt.subplots(figsize=(10.5, 6.5))
+        axes = (axis,)
+    legend_axis = axes[0]
+    x_axis = axes[-1]
     if colors_by_name is None:
         colors_by_name = distribution_color_map(distributions)
     show_probability_density_bars = bool(bars and not peak_normalized)
@@ -1178,13 +1257,18 @@ def plot_distributions(
         values = np.asarray(getattr(distribution, attribute), dtype=float)
         label = "{} (n={:,})".format(distribution.name, values.size)
         if values.size == 0:
-            axis.plot(
-                [],
-                [],
-                color=color,
-                linewidth=2.0,
-                label=label + "; undefined",
-            )
+            for plot_axis in axes:
+                plot_axis.plot(
+                    [],
+                    [],
+                    color=color,
+                    linewidth=2.0,
+                    label=(
+                        label + "; undefined"
+                        if plot_axis is legend_axis
+                        else "_nolegend_"
+                    ),
+                )
             continue
 
         any_samples = True
@@ -1193,13 +1277,13 @@ def plot_distributions(
             bar_density = histogram_density(values, histogram_edges)
 
         if has_kde_support(values):
-            line_count = len(axis.lines)
+            line_count = len(legend_axis.lines)
             kde_support_options = {}
             if nonnegative:
                 kde_support_options["clip"] = (0.0, np.inf)
             sns.kdeplot(
                 x=values,
-                ax=axis,
+                ax=legend_axis,
                 label=label,
                 color=color,
                 fill=False,
@@ -1211,9 +1295,9 @@ def plot_distributions(
                 zorder=KDE_LINE_ZORDER,
                 **kde_support_options,
             )
-            if len(axis.lines) != line_count + 1:
+            if len(legend_axis.lines) != line_count + 1:
                 raise RuntimeError("Seaborn did not produce one KDE curve.")
-            curve = axis.lines[-1]
+            curve = legend_axis.lines[-1]
             if peak_normalized:
                 kde_peak = visible_density_peak(
                     curve.get_xdata(),
@@ -1221,73 +1305,105 @@ def plot_distributions(
                     visible_xlim=fixed_xlim,
                 )
                 curve.set_ydata(curve.get_ydata() / kde_peak)
-            axis.fill_between(
-                curve.get_xdata(),
-                0.0,
-                curve.get_ydata(),
-                facecolor=color,
-                edgecolor="none",
-                alpha=KDE_FILL_ALPHA,
-                label="_nolegend_",
-                zorder=KDE_FILL_ZORDER,
-            )
+            curve_x = curve.get_xdata()
+            curve_y = curve.get_ydata()
+            for plot_axis in axes:
+                if plot_axis is not legend_axis:
+                    plot_axis.plot(
+                        curve_x,
+                        curve_y,
+                        color=color,
+                        linewidth=2.0,
+                        label="_nolegend_",
+                        zorder=KDE_LINE_ZORDER,
+                    )
+                plot_axis.fill_between(
+                    curve_x,
+                    0.0,
+                    curve_y,
+                    facecolor=color,
+                    edgecolor="none",
+                    alpha=KDE_FILL_ALPHA,
+                    label="_nolegend_",
+                    zorder=KDE_FILL_ZORDER,
+                )
         else:
             constant_label = "{}; constant={:.6g}".format(label, values[0])
-            if peak_normalized:
-                axis.vlines(
-                    float(values[0]),
-                    0.0,
-                    1.0,
-                    color=color,
-                    linewidth=2.0,
-                    label=constant_label,
+            for plot_axis in axes:
+                plot_label = (
+                    constant_label
+                    if plot_axis is legend_axis
+                    else "_nolegend_"
                 )
-            else:
-                axis.axvline(
-                    float(values[0]),
-                    color=color,
-                    linewidth=2.0,
-                    label=constant_label,
-                )
+                if peak_normalized:
+                    plot_axis.vlines(
+                        float(values[0]),
+                        0.0,
+                        1.0,
+                        color=color,
+                        linewidth=2.0,
+                        label=plot_label,
+                    )
+                else:
+                    plot_axis.axvline(
+                        float(values[0]),
+                        color=color,
+                        linewidth=2.0,
+                        label=plot_label,
+                    )
 
         if bar_density is not None:
-            axis.bar(
-                histogram_edges[:-1],
-                bar_density,
-                width=np.diff(histogram_edges),
-                align="edge",
-                color=color,
-                edgecolor=color,
-                linewidth=0.5,
-                alpha=histogram_alpha,
-                label="_nolegend_",
-                zorder=1,
-            )
+            for plot_axis in axes:
+                plot_axis.bar(
+                    histogram_edges[:-1],
+                    bar_density,
+                    width=np.diff(histogram_edges),
+                    align="edge",
+                    color=color,
+                    edgecolor=color,
+                    linewidth=0.5,
+                    alpha=histogram_alpha,
+                    label="_nolegend_",
+                    zorder=1,
+                )
 
     if not no_grid:
-        axis.axvline(0.0, color="black", linewidth=0.9, alpha=0.45)
+        for plot_axis in axes:
+            plot_axis.axvline(0.0, color="black", linewidth=0.9, alpha=0.45)
     if not any_samples:
-        axis.text(
+        x_axis.text(
             0.5,
             0.5,
             "No defined samples",
-            transform=axis.transAxes,
+            transform=x_axis.transAxes,
             ha="center",
             va="center",
         )
     if fixed_xlim is not None:
-        axis.set_xlim(*fixed_xlim)
+        x_axis.set_xlim(*fixed_xlim)
     elif nonnegative:
-        axis.set_xlim(left=0.0)
-    axis.set_xlabel(x_label)
+        x_axis.set_xlim(left=0.0)
+    x_axis.set_xlabel(x_label)
     if peak_normalized:
-        axis.set_ylim(0.0, 1.05)
-        axis.set_ylabel("Relative density")
+        if broken_y:
+            lower_axis.set_ylim(*BROKEN_Y_LOWER_LIMITS)
+            upper_axis.set_ylim(*BROKEN_Y_UPPER_LIMITS)
+            for plot_axis in axes:
+                plot_axis.set_ylabel("")
+            figure.supylabel("Relative density")
+        else:
+            x_axis.set_ylim(0.0, 1.05)
+            x_axis.set_ylabel("Relative density")
     else:
-        axis.set_ylabel("Probability density")
-    configure_axes_style(axis, no_grid)
-    axis.legend(title="Molecule", frameon=True)
+        x_axis.set_ylabel("Probability density")
+    for plot_axis in axes:
+        configure_axes_style(plot_axis, no_grid)
+    if broken_y:
+        configure_broken_y_axes(upper_axis, lower_axis, no_grid)
+    legend_axis.legend(title="Molecule", frameon=True)
     figure.tight_layout()
+    if broken_y:
+        figure.subplots_adjust(hspace=BROKEN_Y_SUBPLOT_HSPACE)
     saved_paths = figure_output_paths(output_path)
     for saved_path in saved_paths:
         figure.savefig(
@@ -1494,6 +1610,7 @@ def make_all_plots(distributions, args):
     args.output_dir.mkdir(parents=True, exist_ok=True)
     colors_by_name = distribution_color_map(distributions)
     no_grid = bool(getattr(args, "no_grid", False))
+    break_y = bool(getattr(args, "break_y", False))
     prefix = comparison_prefix([item.name for item in distributions], args.wfn)
     if args.off_diagonal_only:
         prefix += "_offdiag"
@@ -1724,6 +1841,38 @@ def make_all_plots(distributions, args):
             png_path, svg_path = saved_paths
             paths[peak_key] = png_path
             paths["{}_svg".format(peak_key)] = svg_path
+            if break_y and attribute in BROKEN_Y_PLOT_ATTRIBUTES:
+                broken_key = "{}_break_y".format(peak_key)
+                broken_output_path = args.output_dir / (
+                    "{}_{}_unit_peak_density_break_y".format(
+                        prefix,
+                        filename_component,
+                    )
+                )
+                broken_paths = plot_distributions(
+                    distributions,
+                    attribute,
+                    x_label,
+                    broken_output_path,
+                    args.bw_adjust,
+                    args.dpi,
+                    fixed_xlim=fixed_xlim,
+                    peak_normalized=True,
+                    bars=False,
+                    kde_bandwidth_factor=kde_bandwidth_factor,
+                    kde_gridsize=(
+                        DETAILED_KDE_GRIDSIZE
+                        if detailed_kde
+                        else DEFAULT_KDE_GRIDSIZE
+                    ),
+                    colors_by_name=colors_by_name,
+                    no_grid=no_grid,
+                    nonnegative=nonnegative,
+                    broken_y=True,
+                )
+                broken_png_path, broken_svg_path = broken_paths
+                paths[broken_key] = broken_png_path
+                paths["{}_svg".format(broken_key)] = broken_svg_path
     return paths
 
 
@@ -1780,6 +1929,18 @@ def main(argv=None):
             "disabled (outward bottom/left ticks; zero reference hidden)"
             if args.no_grid
             else "enabled (zero reference shown)"
+        )
+    )
+    print(
+        "Broken relative-density y-axis={}".format(
+            (
+                "enabled for raw-covariance and unweighted term-variance "
+                "comparisons (0.2 to 0.9 omitted)"
+                if len(args.molecules) > 1
+                else "requested, but no multi-molecule comparison was given"
+            )
+            if args.break_y
+            else "disabled"
         )
     )
     print(
